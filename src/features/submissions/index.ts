@@ -3,7 +3,6 @@ import { processFeedbackWithLuna } from "@/features/ai";
 import { verifyTurnstileToken, validateSubmissionText } from "@/lib/security";
 import { mockDatabase } from "@/lib/db";
 import type {
-  UserRole,
   PostPublic,
   SubmissionPrivate,
   QuotaStatus,

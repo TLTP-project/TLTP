@@ -1,4 +1,4 @@
-import { ShieldCheck, Sparkles, AlertCircle, EyeOff, Scale } from "lucide-react";
+import { Sparkles, AlertCircle, EyeOff, Scale } from "lucide-react";
 
 export default function PoliciesPage() {
   return (

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ShieldCheck, Eye, EyeOff, Trash2, RotateCcw } from "lucide-react";
+import { ShieldCheck, EyeOff, Trash2, RotateCcw } from "lucide-react";
 import { mockDatabase } from "@/lib/db";
 import { moderatePost } from "@/features/moderation";
 import type { PostPublic } from "@/types";

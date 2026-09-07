@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ShieldCheck, CheckCircle2, XCircle, AlertTriangle, Eye } from "lucide-react";
+import { ShieldCheck, XCircle, AlertTriangle } from "lucide-react";
 import { mockReports } from "@/features/reports";
 import { resolveReport, moderatePost } from "@/features/moderation";
 import { mockDatabase } from "@/lib/db";

@@ -15,7 +15,9 @@ export async function GET(
   }
 
   // Sanitize public post output: omit author_id and submission_id to protect anonymity
-  const { author_id: _authorId, submission_id: _submissionId, ...sanitizedPost } = post;
+  const sanitizedPost = { ...post };
+  delete sanitizedPost.author_id;
+  delete sanitizedPost.submission_id;
   return NextResponse.json({ post: sanitizedPost });
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Flag, Trash2, CheckCircle, Sparkles, MessageCircle } from "lucide-react";
+import { Flag, Trash2, Sparkles, MessageCircle } from "lucide-react";
 import { ReportModal } from "./ReportModal";
 import type { PostPublic } from "@/types";
 
