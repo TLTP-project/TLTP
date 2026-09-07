@@ -25,6 +25,7 @@ Do not advertise the current demo as a live production forum and do not place re
 - A sender chooses Student, Teacher or School during onboarding. School uses the same privacy display policy as Teacher while keeping the public title “School”.
 - Student → Teacher: the teacher target can remain visible; the student is shown as a server-generated cute alias.
 - Teacher → Student: both identities are hidden on the public surface.
+- School follows the Teacher → Student/class flow and keeps the public sender title “School”; there is no separate School target flow yet.
 - Relevant feedback is rewritten into gentle, constructive Vietnamese without changing its meaning. Harsh or vulgar wording is softened, not rejected for tone alone.
 - Completely off-topic text returns `nothing` and creates no public post.
 - Relevant text is published immediately after AI processing. The sender sees the published result and may keep or soft-delete it; there is no preview step.

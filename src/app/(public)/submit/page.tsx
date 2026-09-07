@@ -16,6 +16,7 @@ import { Logo } from "@/components/ui/Logo";
 import { mockDatabase } from "@/lib/db";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
+import { STUDENT_TARGET_LABEL } from "@/types";
 import type { PostPublic, UserRole } from "@/types";
 
 gsap.registerPlugin(useGSAP);
@@ -27,12 +28,13 @@ const roles: Array<{ value: UserRole; label: string; description: string }> = [
 ];
 
 export default function SubmitPage() {
+  const demoEnabled = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   const containerRef = useRef<HTMLDivElement>(null);
   const resultCardRef = useRef<HTMLDivElement>(null);
   const [role, setRole] = useState<UserRole>("student");
-  const [targetType, setTargetType] = useState<"teacher" | "school">("teacher");
   const [targetTeacherId, setTargetTeacherId] = useState(mockDatabase.teachers[0]?.id || "");
   const [teachers, setTeachers] = useState(mockDatabase.teachers);
+  const [isRoleLoading, setIsRoleLoading] = useState(false);
   const [text, setText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -44,8 +46,18 @@ export default function SubmitPage() {
   const isLengthValid = charCount >= 10 && charCount <= 1500;
 
   useEffect(() => {
-    const demoEnabled = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
     if (demoEnabled) return;
+
+    setIsRoleLoading(true);
+    fetch("/api/submissions", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data?.role === "student" || data?.role === "teacher" || data?.role === "school") {
+          setRole(data.role);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => setIsRoleLoading(false));
 
     fetch("/api/teachers", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
@@ -56,7 +68,7 @@ export default function SubmitPage() {
         }
       })
       .catch(() => undefined);
-  }, []);
+  }, [demoEnabled]);
 
   useGSAP(
     () => {
@@ -99,9 +111,9 @@ export default function SubmitPage() {
 
     try {
       const selectedTeacher = teachers.find((teacher) => teacher.id === targetTeacherId);
-      const targetLabel = targetType === "teacher" && selectedTeacher
+      const targetLabel = role === "student" && selectedTeacher
         ? selectedTeacher.display_name
-        : "Nhà trường & Ban Giám Hiệu";
+        : STUDENT_TARGET_LABEL;
 
       const response = await fetch("/api/submissions", {
         method: "POST",
@@ -109,7 +121,7 @@ export default function SubmitPage() {
         body: JSON.stringify({
           role,
           target: targetLabel,
-          target_teacher_id: targetType === "teacher" ? targetTeacherId : undefined,
+          target_teacher_id: role === "student" ? targetTeacherId : undefined,
           text: text.trim(),
           turnstile_token:
             process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true"
@@ -242,9 +254,10 @@ export default function SubmitPage() {
                 <button
                   key={item.value}
                   type="button"
+                  disabled={!demoEnabled}
                   aria-pressed={role === item.value}
                   onClick={() => setRole(item.value)}
-                  className={`rounded-2xl border p-4 text-left transition-all ${
+                  className={`rounded-2xl border p-4 text-left transition-all disabled:cursor-not-allowed ${
                     role === item.value
                       ? "border-amber-500 bg-amber-50 shadow-sm"
                       : "border-stone-200 bg-white hover:border-amber-300 hover:bg-amber-50/40"
@@ -259,28 +272,7 @@ export default function SubmitPage() {
 
           <fieldset className="form-section mt-8 space-y-3">
             <legend className="text-sm font-extrabold text-stone-900">Bạn muốn gửi đến đâu?</legend>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {[
-                ["teacher", "Một thầy / cô"],
-                ["school", "Nhà trường"],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={targetType === value}
-                  onClick={() => setTargetType(value as "teacher" | "school")}
-                  className={`rounded-2xl border px-4 py-3 text-left text-sm font-bold transition-all ${
-                    targetType === value
-                      ? "border-amber-500 bg-amber-50 text-amber-950"
-                      : "border-stone-200 bg-white text-stone-700 hover:border-amber-300"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {targetType === "teacher" && (
+            {role === "student" ? (
               <div>
                 <label htmlFor="target-teacher" className="sr-only">Chọn thầy cô</label>
                 <select
@@ -294,6 +286,11 @@ export default function SubmitPage() {
                   ))}
                 </select>
                 <p className="mt-2 text-xs leading-5 text-stone-400">Tên thầy/cô là đích phản hồi nên sẽ hiển thị; danh tính người gửi vẫn được ẩn.</p>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                <p className="text-sm font-extrabold text-amber-950">{STUDENT_TARGET_LABEL}</p>
+                <p className="mt-1 text-xs leading-5 text-amber-900/75">Flow Giáo viên/Nhà trường giữ kín danh tính của cả người gửi lẫn học sinh; không chọn hay hiển thị tên học sinh riêng lẻ.</p>
               </div>
             )}
           </fieldset>
@@ -332,11 +329,11 @@ export default function SubmitPage() {
 
           <button
             type="submit"
-            disabled={!isLengthValid || isSubmitting}
+            disabled={!isLengthValid || isSubmitting || isRoleLoading}
             className="mt-6 inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-stone-950 px-5 text-sm font-extrabold text-white shadow-lg shadow-stone-950/15 transition-transform hover:-translate-y-0.5 hover:bg-stone-800 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-45"
           >
             {isSubmitting ? <Sparkles className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            {isSubmitting ? "AI đang làm dịu & đăng bài..." : "Gửi và đăng ngay"}
+            {isRoleLoading ? "Đang tải vai trò..." : isSubmitting ? "AI đang làm dịu & đăng bài..." : "Gửi và đăng ngay"}
           </button>
         </form>
       )}

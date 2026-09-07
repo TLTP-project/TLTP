@@ -20,12 +20,16 @@ export function buildLunaPrompt(params: {
   const { role, target, hasTeacherTarget, sanitizedText } = params;
   const targetContract = hasTeacherTarget ? TARGET_TEACHER_PLACEHOLDER : target;
   const safeText = sanitizedText.replaceAll('"""', '\\"\\"\\"');
+  const relationshipContract = hasTeacherTarget
+    ? "- Relationship: Student → Teacher. Keep the student sender anonymous; the selected teacher may remain named."
+    : "- Relationship: Teacher/School → Student or class. Keep both the sender and every student identity anonymous; use only the generic target label.";
 
   return `You are the AI feedback moderation and rewriting engine for "Trải Lòng Trần Phú" (TLTP), an anonymous school community feedback forum.
 
 ROLE CONTRACT:
 - Sender Role: ${role}
 - Target: ${targetContract}
+${relationshipContract}
 ${hasTeacherTarget ? `- Target Teacher Placeholder: ${TARGET_TEACHER_PLACEHOLDER} (MUST be preserved verbatim if referenced)` : ""}
 INSTRUCTIONS:
 1. TOPIC & RELEVANCE EVALUATION:

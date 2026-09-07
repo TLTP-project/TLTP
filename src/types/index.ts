@@ -1,5 +1,8 @@
 export type UserRole = "student" | "teacher" | "school";
 
+/** Canonical anonymous target for teacher/school feedback. */
+export const STUDENT_TARGET_LABEL = "Học sinh / lớp học";
+
 export type VerificationStatus = "active" | "pending_verification" | "rejected";
 
 export interface Profile {

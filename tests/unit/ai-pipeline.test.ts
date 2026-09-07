@@ -15,7 +15,20 @@ describe("AI Luna Pipeline", () => {
     expect(prompt).toContain("Sender Role: student");
     expect(prompt).toContain(TARGET_TEACHER_PLACEHOLDER);
     expect(prompt).toContain("TONE SOFTENING");
+    expect(prompt).toContain("Student → Teacher");
     expect(prompt).toContain("Tiết học hơi khó hiểu");
+  });
+
+  it("keeps teacher and school feedback anonymous toward the generic student target", () => {
+    const prompt = buildLunaPrompt({
+      role: "school",
+      target: "Học sinh / lớp học",
+      hasTeacherTarget: false,
+      sanitizedText: "Mong các bạn có thêm không gian học tập yên tĩnh.",
+    });
+
+    expect(prompt).toContain("Teacher/School → Student or class");
+    expect(prompt).toContain("Học sinh / lớp học");
   });
 
   it("handles off-topic submissions by returning nothing decision", async () => {

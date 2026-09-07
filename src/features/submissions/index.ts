@@ -11,6 +11,7 @@ import type {
   QuotaStatus,
   CreateSubmissionInput,
 } from "@/types";
+import { STUDENT_TARGET_LABEL } from "@/types";
 
 export const submissionInputSchema = z.object({
   role: z.enum(["student", "teacher", "school"]),
@@ -176,9 +177,23 @@ export async function submitFeedback(
     };
   }
 
+  if (input.role === "student" && !input.target_teacher_id) {
+    return {
+      success: false,
+      error: "Học sinh cần chọn đúng thầy/cô nhận phản hồi.",
+    };
+  }
+
+  if (input.role !== "student" && input.target_teacher_id) {
+    return {
+      success: false,
+      error: "Vai trò này chỉ gửi phản hồi ẩn danh tới học sinh hoặc lớp học.",
+    };
+  }
+
   // Find target teacher name if applicable
   let teacherName: string | undefined;
-  if (input.target_teacher_id) {
+  if (input.role === "student" && input.target_teacher_id) {
     const teacher = env.NEXT_PUBLIC_DEMO_MODE
       ? mockDatabase.teachers.find((t) => t.id === input.target_teacher_id && t.active)
       : (await createAdminClient()
@@ -197,6 +212,8 @@ export async function submitFeedback(
     teacherName = teacher.display_name;
   }
 
+  const canonicalTarget = teacherName || STUDENT_TARGET_LABEL;
+
   // 4. Record submission attempt in private store
   const submissionId = env.NEXT_PUBLIC_DEMO_MODE
     ? `sub-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
@@ -205,7 +222,7 @@ export async function submitFeedback(
     id: submissionId,
     author_id: userId,
     role: input.role,
-    target: input.target,
+    target: canonicalTarget,
     target_teacher_id: input.target_teacher_id,
     raw_text: input.text,
     ip_hash: hashClientIp(clientIp),
@@ -219,7 +236,7 @@ export async function submitFeedback(
     // 5. Call Luna AI pipeline
     const aiResult = await processFeedbackWithLuna({
       role: input.role,
-      target: input.target,
+      target: canonicalTarget,
       teacherName,
       text: input.text,
     });
@@ -233,7 +250,7 @@ export async function submitFeedback(
           id: submissionId,
           author_id: userId,
           role: input.role,
-          target: input.target,
+          target: canonicalTarget,
           target_teacher_id: input.target_teacher_id || null,
           raw_text: input.text,
           ip_hash: privateRecord.ip_hash,
@@ -275,7 +292,7 @@ export async function submitFeedback(
         id: submissionId,
         author_id: userId,
         role: input.role,
-        target: input.target,
+        target: canonicalTarget,
         target_teacher_id: input.target_teacher_id || null,
         raw_text: input.text,
         ip_hash: privateRecord.ip_hash,

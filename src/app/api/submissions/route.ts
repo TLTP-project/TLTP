@@ -84,5 +84,5 @@ export async function GET() {
   }
 
   const quota = await checkUserQuota(user.id);
-  return NextResponse.json({ quota });
+  return NextResponse.json({ quota, role: user.role });
 }
