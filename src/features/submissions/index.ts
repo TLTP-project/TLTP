@@ -10,12 +10,13 @@ import type {
   SubmissionPrivate,
   QuotaStatus,
   CreateSubmissionInput,
+  Teacher,
 } from "@/types";
 import { STUDENT_TARGET_LABEL } from "@/types";
 
 export const submissionInputSchema = z.object({
   role: z.enum(["student", "teacher", "school"]),
-  target: z.string().min(1, "Vui lòng chọn đối tượng phản hồi"),
+  target: z.string().optional(),
   target_teacher_id: z.string().uuid().optional().or(z.literal("")),
   text: z.string().min(10, "Nội dung phản hồi tối thiểu 10 ký tự").max(1500, "Nội dung phản hồi tối đa 1,500 ký tự"),
   turnstile_token: z.string().optional(),
@@ -178,42 +179,32 @@ export async function submitFeedback(
     };
   }
 
-  if (input.role === "student" && !input.target_teacher_id) {
-    return {
-      success: false,
-      error: "Học sinh cần chọn đúng thầy/cô nhận phản hồi.",
-    };
-  }
+  // The teacher is intentionally inferred from the submitted text. The client
+  // can no longer choose a recipient, and any legacy target fields are ignored.
+  let teacherCandidates: Teacher[] = [];
+  if (env.NEXT_PUBLIC_DEMO_MODE) {
+    teacherCandidates = mockDatabase.teachers.filter((teacher) => teacher.active);
+  } else {
+    const { data, error } = await createAdminClient()
+      .from("teachers")
+      .select("id, display_name, subject, active, created_at")
+      .eq("active", true)
+      .order("display_name", { ascending: true });
 
-  if (input.role !== "student" && input.target_teacher_id) {
-    return {
-      success: false,
-      error: "Vai trò này chỉ gửi phản hồi ẩn danh tới học sinh hoặc lớp học.",
-    };
-  }
-
-  // Find target teacher name if applicable
-  let teacherName: string | undefined;
-  if (input.role === "student" && input.target_teacher_id) {
-    const teacher = env.NEXT_PUBLIC_DEMO_MODE
-      ? mockDatabase.teachers.find((t) => t.id === input.target_teacher_id && t.active)
-      : (await createAdminClient()
-          .from("teachers")
-          .select("id, display_name, subject, active, created_at")
-          .eq("id", input.target_teacher_id)
-          .eq("active", true)
-          .maybeSingle()).data;
-
-    if (!teacher) {
+    if (error) {
+      console.error("Failed to load teacher candidates:", error);
       return {
         success: false,
-        error: "Giáo viên được chọn không tồn tại hoặc đã ngừng công tác.",
+        reason: "PROCESSING_FAILED",
+        error: "Không thể tải danh sách giáo viên để AI nhận diện. Vui lòng thử lại sau ít phút.",
       };
     }
-    teacherName = teacher.display_name;
+    teacherCandidates = data ?? [];
   }
 
-  const canonicalTarget = teacherName || STUDENT_TARGET_LABEL;
+  const canonicalTarget = input.role === "student"
+    ? "Giáo viên được AI nhận diện"
+    : STUDENT_TARGET_LABEL;
 
   // 4. Record submission attempt in private store
   const submissionId = env.NEXT_PUBLIC_DEMO_MODE
@@ -224,7 +215,7 @@ export async function submitFeedback(
     author_id: userId,
     role: input.role,
     target: canonicalTarget,
-    target_teacher_id: input.target_teacher_id,
+    target_teacher_id: null,
     raw_text: input.text,
     ip_hash: hashClientIp(clientIp),
     user_agent: clientUserAgent,
@@ -239,9 +230,12 @@ export async function submitFeedback(
     const aiResult = await processFeedbackWithLuna({
       role: input.role,
       target: canonicalTarget,
-      teacherName,
+      teachers: teacherCandidates,
       text: input.text,
     });
+
+    privateRecord.target = aiResult.displayTarget;
+    privateRecord.target_teacher_id = aiResult.targetTeacherId || null;
 
     if (aiResult.decision === "nothing" || !aiResult.publicText) {
       privateRecord.ai_decision = "nothing";
@@ -252,8 +246,8 @@ export async function submitFeedback(
           id: submissionId,
           author_id: userId,
           role: input.role,
-          target: canonicalTarget,
-          target_teacher_id: input.target_teacher_id || null,
+          target: privateRecord.target,
+          target_teacher_id: privateRecord.target_teacher_id || null,
           raw_text: input.text,
           ip_hash: privateRecord.ip_hash,
           user_agent: privateRecord.user_agent,
@@ -292,7 +286,7 @@ export async function submitFeedback(
       processed_text: aiResult.publicText,
       display_sender: aiResult.displaySender,
       display_target: aiResult.displayTarget,
-      target_teacher_id: input.target_teacher_id,
+      target_teacher_id: aiResult.targetTeacherId || null,
       status: "published",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -307,8 +301,8 @@ export async function submitFeedback(
         id: submissionId,
         author_id: userId,
         role: input.role,
-        target: canonicalTarget,
-        target_teacher_id: input.target_teacher_id || null,
+        target: privateRecord.target,
+        target_teacher_id: privateRecord.target_teacher_id || null,
         raw_text: input.text,
         ip_hash: privateRecord.ip_hash,
         user_agent: privateRecord.user_agent,
@@ -325,7 +319,7 @@ export async function submitFeedback(
         processed_text: newPost.processed_text,
         display_sender: newPost.display_sender,
         display_target: newPost.display_target,
-        target_teacher_id: input.target_teacher_id || null,
+        target_teacher_id: newPost.target_teacher_id || null,
         status: "published",
       });
       if (postError) throw postError;

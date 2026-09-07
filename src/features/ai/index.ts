@@ -7,7 +7,7 @@ import {
   generateAnonymousAlias,
   TARGET_TEACHER_PLACEHOLDER,
 } from "@/lib/privacy";
-import type { UserRole, AiRewriteResult } from "@/types";
+import type { UserRole, AiRewriteResult, Teacher } from "@/types";
 
 /**
  * Builds the strict system prompt for GPT-5.6 Luna based on PLAN.md specifications.
@@ -17,13 +17,21 @@ export function buildLunaPrompt(params: {
   target: string;
   hasTeacherTarget: boolean;
   sanitizedText: string;
+  teachers?: Teacher[];
+  matchedTeacher?: Teacher;
 }): string {
-  const { role, target, hasTeacherTarget, sanitizedText } = params;
+  const { role, target, hasTeacherTarget, sanitizedText, teachers = [], matchedTeacher } = params;
   const targetContract = hasTeacherTarget ? TARGET_TEACHER_PLACEHOLDER : target;
   const safeText = sanitizedText.replaceAll('"""', '\\"\\"\\"');
-  const relationshipContract = hasTeacherTarget
-    ? "- Relationship: Student → Teacher. Keep the student sender anonymous; the selected teacher may remain named."
+  const relationshipContract = role === "student"
+    ? "- Relationship: Student → Teacher. Keep the student sender anonymous; the identified teacher may remain named."
     : "- Relationship: Teacher/School → Student or class. Keep both the sender and every student identity anonymous; use only the generic target label.";
+  const teacherCandidates = teachers.length
+    ? teachers
+        .filter((teacher) => teacher.active)
+        .map((teacher) => `- ${teacher.id}: ${teacher.display_name}${teacher.subject ? ` (${teacher.subject})` : ""}`)
+        .join("\n")
+    : "- No active teacher candidates are available.";
 
   return `You are the AI feedback moderation and rewriting engine for "Trải Lòng Trần Phú" (TLTP), an anonymous school community feedback forum.
 
@@ -32,6 +40,9 @@ ROLE CONTRACT:
 - Target: ${targetContract}
 ${relationshipContract}
 ${hasTeacherTarget ? `- Target Teacher Placeholder: ${TARGET_TEACHER_PLACEHOLDER} (MUST be preserved verbatim if referenced)` : ""}
+${matchedTeacher ? `- Canonical match for the placeholder: ${matchedTeacher.id} (${matchedTeacher.display_name}). Use this ID.` : ""}
+KNOWN ACTIVE TEACHERS (use only these canonical IDs):
+${teacherCandidates}
 INSTRUCTIONS:
 1. TOPIC & RELEVANCE EVALUATION:
    - Check if the submitted text is genuine school-related feedback, experiences, or constructive suggestions regarding teaching, classroom conduct, learning facilities, curriculum, or school activities.
@@ -52,7 +63,13 @@ INSTRUCTIONS:
    - If the target teacher placeholder "${TARGET_TEACHER_PLACEHOLDER}" is present, preserve it exactly as "${TARGET_TEACHER_PLACEHOLDER}".
    - Do NOT include any student names, personal phone numbers, emails, addresses, or private identities.
 
-4. SEVERE SAFETY RISKS:
+4. RECIPIENT IDENTIFICATION:
+   - For a student submission, inspect the original meaning and select the matching canonical teacher ID from the list when the teacher is named or clearly identified by context.
+   - If no teacher can be identified with confidence, return a null target_teacher_id. Never invent an ID.
+   - For teacher or school submissions, target_teacher_id MUST be null.
+   - Always include target_teacher_id in the structured response, including when decision is "nothing".
+
+5. SEVERE SAFETY RISKS:
    - Specific immediate threats of violence, self-harm, sexual harassment or child abuse must be classified with a warning note in "reasoning_notes", while softening the public text or recommending moderation review.
 
 SUBMITTED TEXT:
@@ -65,6 +82,7 @@ export interface ProcessFeedbackInput {
   role: UserRole;
   target: string;
   teacherName?: string;
+  teachers?: Teacher[];
   text: string;
 }
 
@@ -73,14 +91,32 @@ export interface ProcessFeedbackOutput {
   publicText: string | null;
   displaySender: string;
   displayTarget: string;
+  targetTeacherId?: string | null;
   meaningPreserved: boolean;
   reasoningNotes?: string;
+}
+
+function normalizeForTeacherMatch(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("vi-VN")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findMentionedTeacher(text: string, teachers: Teacher[]): Teacher | undefined {
+  const normalizedText = normalizeForTeacherMatch(text);
+  return teachers
+    .filter((teacher) => teacher.active)
+    .sort((left, right) => right.display_name.length - left.display_name.length)
+    .find((teacher) => normalizedText.includes(normalizeForTeacherMatch(teacher.display_name)));
 }
 
 /**
  * Full end-to-end AI processing pipeline for user submissions:
  * 1. PII Redaction
- * 2. Target Teacher Placeholder Replacement
+ * 2. Target Teacher Placeholder Replacement and recipient candidates
  * 3. Luna Responses API Call
  * 4. Target Teacher Canonical Name Restoration
  * 5. Sender Alias Assignment
@@ -88,15 +124,21 @@ export interface ProcessFeedbackOutput {
 export async function processFeedbackWithLuna(
   input: ProcessFeedbackInput
 ): Promise<ProcessFeedbackOutput> {
-  const { role, target, teacherName, text } = input;
+  const { role, target, teacherName, teachers = [], text } = input;
+  const activeTeachers = teachers.filter((teacher) => teacher.active);
+  const mentionedTeacher = role === "student" ? findMentionedTeacher(text, activeTeachers) : undefined;
+  const knownTeacher = teacherName
+    ? activeTeachers.find((teacher) => teacher.display_name === teacherName)
+    : undefined;
+  const teacherToPreserve = teacherName || mentionedTeacher?.display_name;
 
   // Step 1: Redact PII
   let sanitized = redactPII(text);
 
-  // Step 2: Swap teacher name with placeholder if target is a teacher
-  const hasTeacherTarget = Boolean(teacherName && teacherName.trim());
-  if (hasTeacherTarget && teacherName) {
-    sanitized = replaceTargetWithPlaceholder(sanitized, teacherName);
+  // Step 2: Preserve a canonical teacher name while protecting all other names
+  const hasTeacherTarget = Boolean(teacherToPreserve && teacherToPreserve.trim());
+  if (hasTeacherTarget && teacherToPreserve) {
+    sanitized = replaceTargetWithPlaceholder(sanitized, teacherToPreserve);
   }
   sanitized = redactPotentialNames(sanitized);
 
@@ -106,9 +148,16 @@ export async function processFeedbackWithLuna(
     target,
     hasTeacherTarget,
     sanitizedText: sanitized,
+    teachers: activeTeachers,
+    matchedTeacher: mentionedTeacher || knownTeacher,
   });
 
-  const aiResult: AiRewriteResult = await callLunaRewrite(prompt);
+  const aiResult: AiRewriteResult = await callLunaRewrite(prompt, activeTeachers);
+  const selectedTeacher = role === "student"
+    ? activeTeachers.find((teacher) => teacher.id === aiResult.target_teacher_id) || mentionedTeacher || knownTeacher
+    : undefined;
+  const resolvedTeacherName = selectedTeacher?.display_name || teacherName;
+  const resolvedTeacherId = selectedTeacher?.id || (teacherName ? knownTeacher?.id : undefined) || null;
 
   // Step 4: Handle decisions
   if (aiResult.decision === "nothing" || !aiResult.public_text) {
@@ -116,7 +165,8 @@ export async function processFeedbackWithLuna(
       decision: "nothing",
       publicText: null,
       displaySender: generateAnonymousAlias(role),
-      displayTarget: teacherName || target,
+      displayTarget: resolvedTeacherName || target,
+      targetTeacherId: resolvedTeacherId,
       meaningPreserved: true,
       reasoningNotes: aiResult.reasoning_notes,
     };
@@ -124,23 +174,24 @@ export async function processFeedbackWithLuna(
 
   // Step 5: Restore canonical teacher name if placeholder was used
   let restoredPublicText = aiResult.public_text;
-  if (hasTeacherTarget && teacherName) {
-    restoredPublicText = replaceTargetWithPlaceholder(restoredPublicText, teacherName);
+  if (resolvedTeacherName) {
+    restoredPublicText = replaceTargetWithPlaceholder(restoredPublicText, resolvedTeacherName);
   }
   restoredPublicText = redactPotentialNames(restoredPublicText);
-  if (hasTeacherTarget && teacherName) {
-    restoredPublicText = restoreTargetPlaceholder(restoredPublicText, teacherName);
+  if (resolvedTeacherName) {
+    restoredPublicText = restoreTargetPlaceholder(restoredPublicText, resolvedTeacherName);
   }
 
   // Step 6: Assign anonymous display sender
   const displaySender = generateAnonymousAlias(role);
-  const displayTarget = teacherName || target;
+  const displayTarget = resolvedTeacherName || target;
 
   return {
     decision: "publish",
     publicText: restoredPublicText,
     displaySender,
     displayTarget,
+    targetTeacherId: resolvedTeacherId,
     meaningPreserved: aiResult.meaning_preserved ?? true,
     reasoningNotes: aiResult.reasoning_notes,
   };

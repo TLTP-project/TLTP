@@ -27,6 +27,8 @@ export type AiDecision = "publish" | "nothing" | "processing_failed";
 export interface AiRewriteResult {
   decision: "publish" | "nothing";
   public_text: string | null;
+  /** Canonical teacher selected by the AI from the active teacher list. */
+  target_teacher_id?: string | null;
   meaning_preserved?: boolean;
   display_sender?: string;
   display_target?: string;
@@ -88,7 +90,8 @@ export interface QuotaStatus {
 
 export interface CreateSubmissionInput {
   role: UserRole;
-  target: string;
+  /** Kept optional for backwards-compatible clients; the server now infers the target. */
+  target?: string;
   target_teacher_id?: string;
   text: string;
   turnstile_token?: string;

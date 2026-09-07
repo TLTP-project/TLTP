@@ -9,21 +9,38 @@ import type { PostPublic } from "@/types";
 
 export default function MyPostsPage() {
   const user = getCurrentDevUser();
+  const userId = user?.id;
   const [posts, setPosts] = useState<PostPublic[]>(
     user ? mockDatabase.posts.filter((post) => post.author_id === user.id) : []
   );
   const [errorMessage, setErrorMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(!user);
 
   useEffect(() => {
-    if (user) return;
+    if (userId) {
+      setIsLoading(false);
+      return;
+    }
 
+    let isMounted = true;
+    setIsLoading(true);
     fetch("/api/account/posts", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (data?.posts) setPosts(data.posts);
+      .then(async (response) => {
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(data?.error || "Không thể tải bài viết của bạn.");
+        if (isMounted) setPosts(Array.isArray(data?.posts) ? data.posts : []);
       })
-      .catch(() => setErrorMessage("Không thể tải bài viết của bạn."));
-  }, [user]);
+      .catch((error: unknown) => {
+        if (isMounted) setErrorMessage(error instanceof Error ? error.message : "Không thể tải bài viết của bạn.");
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
 
   async function handleDelete(postId: string) {
     if (!window.confirm("Bạn có chắc chắn muốn gỡ bài viết này khỏi bảng tin?")) return;
@@ -63,7 +80,11 @@ export default function MyPostsPage() {
 
       {errorMessage && <p role="alert" className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">{errorMessage}</p>}
 
-      {posts.length === 0 ? (
+      {isLoading ? (
+        <div className="surface-card mt-8 rounded-3xl p-12 text-center text-sm font-semibold text-stone-500">
+          Đang tải các bài bạn đã đăng...
+        </div>
+      ) : posts.length === 0 ? (
         <div className="surface-card mt-8 rounded-3xl border-dashed p-12 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">✦</div>
           <p className="mt-4 text-sm font-bold text-stone-800">Bạn chưa gửi phản hồi nào.</p>

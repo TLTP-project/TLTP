@@ -6,15 +6,12 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
-  RotateCcw,
   Send,
   ShieldCheck,
   Sparkles,
-  Trash2,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { TurnstileWidget } from "@/components/security/TurnstileWidget";
-import { mockDatabase } from "@/lib/db";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { STUDENT_TARGET_LABEL } from "@/types";
@@ -33,46 +30,32 @@ export default function SubmitPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const resultCardRef = useRef<HTMLDivElement>(null);
   const [role, setRole] = useState<UserRole>("student");
-  const [targetTeacherId, setTargetTeacherId] = useState(demoEnabled ? mockDatabase.teachers[0]?.id || "" : "");
-  const [teachers, setTeachers] = useState(demoEnabled ? mockDatabase.teachers : []);
   const [isRoleLoading, setIsRoleLoading] = useState(!demoEnabled);
   const [text, setText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [publishedPost, setPublishedPost] = useState<PostPublic | null>(null);
-  const [hasKept, setHasKept] = useState(false);
-  const [hasDeleted, setHasDeleted] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const charCount = text.length;
   const isLengthValid = charCount >= 10 && charCount <= 1500;
-  const canSubmit = isLengthValid && (role !== "student" || Boolean(targetTeacherId)) && (demoEnabled || Boolean(turnstileToken));
+  const canSubmit = isLengthValid && (demoEnabled || Boolean(turnstileToken));
 
   useEffect(() => {
     if (demoEnabled) return;
 
     setIsRoleLoading(true);
-    Promise.all([
-      fetch("/api/submissions", { cache: "no-store" }),
-      fetch("/api/teachers", { cache: "no-store" }),
-    ])
-      .then(async ([quotaResponse, teachersResponse]) => {
-        if (!quotaResponse.ok || !teachersResponse.ok) throw new Error("form_config_load_failed");
+    fetch("/api/submissions", { cache: "no-store" })
+      .then(async (quotaResponse) => {
+        if (!quotaResponse.ok) throw new Error("form_config_load_failed");
 
-        const [quotaData, teachersData] = await Promise.all([
-          quotaResponse.json(),
-          teachersResponse.json(),
-        ]);
+        const quotaData = await quotaResponse.json();
 
         if (quotaData?.role === "student" || quotaData?.role === "teacher" || quotaData?.role === "school") {
           setRole(quotaData.role);
         }
 
-        if (teachersData?.teachers?.length) {
-          setTeachers(teachersData.teachers);
-          setTargetTeacherId(teachersData.teachers[0].id);
-        }
       })
       .catch(() => setErrorMessage("Không thể tải cấu hình phản hồi. Vui lòng tải lại trang."))
       .finally(() => setIsRoleLoading(false));
@@ -118,18 +101,11 @@ export default function SubmitPage() {
     setErrorMessage("");
 
     try {
-      const selectedTeacher = teachers.find((teacher) => teacher.id === targetTeacherId);
-      const targetLabel = role === "student" && selectedTeacher
-        ? selectedTeacher.display_name
-        : STUDENT_TARGET_LABEL;
-
       const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           role,
-          target: targetLabel,
-          target_teacher_id: role === "student" ? targetTeacherId : undefined,
           text: text.trim(),
           turnstile_token:
             demoEnabled ? "dev-dummy-token" : turnstileToken || undefined,
@@ -153,27 +129,8 @@ export default function SubmitPage() {
     }
   }
 
-  async function handleDeletePublishedPost() {
-    if (!publishedPost) return;
-    setErrorMessage("");
-
-    try {
-      const response = await fetch(`/api/posts/${publishedPost.id}`, { method: "DELETE" });
-      if (response.ok) {
-        setHasDeleted(true);
-      } else {
-        const data = await response.json().catch(() => null);
-        setErrorMessage(data?.error || "Không thể gỡ bài viết.");
-      }
-    } catch {
-      setErrorMessage("Lỗi kết nối máy chủ. Vui lòng thử lại.");
-    }
-  }
-
   function resetForm() {
     setPublishedPost(null);
-    setHasDeleted(false);
-    setHasKept(false);
     setText("");
     setErrorMessage("");
     setTurnstileToken("");
@@ -222,38 +179,20 @@ export default function SubmitPage() {
             </div>
           </div>
 
-          {hasDeleted ? (
-            <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-center text-sm text-rose-700">
-              Bài viết đã được gỡ khỏi bảng tin công khai.
-              <button type="button" onClick={resetForm} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800">
-                <RotateCcw className="h-3.5 w-3.5" /> Gửi phản hồi khác
+          <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm text-emerald-800">
+            Bài viết đã được đăng ngay. Nếu muốn xóa, mở mục <strong>Bài của tôi</strong>.
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              <Link href="/" className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-800">
+                Xem bảng tin <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+              <Link href="/my-posts" className="inline-flex items-center rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50">
+                Bài của tôi
+              </Link>
+              <button type="button" onClick={resetForm} className="inline-flex items-center rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50">
+                Gửi bài khác
               </button>
             </div>
-          ) : hasKept ? (
-            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm text-emerald-800">
-              Bài viết đang hiển thị trên bảng tin công khai.
-              <div className="mt-3 flex flex-wrap justify-center gap-2">
-                <Link href="/" className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-800">
-                  Xem bảng tin <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-                <Link href="/my-posts" className="inline-flex items-center rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50">
-                  Bài của tôi
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-6 space-y-3">
-              <p className="text-center text-xs leading-5 text-stone-500">Bài đã đăng ngay. Bạn có thể giữ lại hoặc gỡ bài nếu đổi ý.</p>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button type="button" onClick={() => setHasKept(true)} className="flex-1 rounded-2xl bg-emerald-700 px-4 py-3.5 text-sm font-extrabold text-white transition-colors hover:bg-emerald-800">
-                  Giữ bài
-                </button>
-                <button type="button" onClick={handleDeletePublishedPost} className="flex-1 rounded-2xl border border-rose-200 bg-white px-4 py-3.5 text-sm font-extrabold text-rose-600 transition-colors hover:bg-rose-50">
-                  <Trash2 className="mr-1.5 inline h-4 w-4" /> Gỡ bài
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
 
           {errorMessage && <p className="mt-4 text-center text-sm font-semibold text-rose-600">{errorMessage}</p>}
         </div>
@@ -283,28 +222,20 @@ export default function SubmitPage() {
           </fieldset>
 
           <fieldset className="form-section mt-8 space-y-3">
-            <legend className="text-sm font-extrabold text-stone-900">Bạn muốn gửi đến đâu?</legend>
-            {role === "student" ? (
-              <div>
-                <label htmlFor="target-teacher" className="sr-only">Chọn thầy cô</label>
-                <select
-                  id="target-teacher"
-                  value={targetTeacherId}
-                  onChange={(event) => setTargetTeacherId(event.target.value)}
-                  className="h-12 w-full rounded-2xl border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-800 focus:border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-500/10"
-                >
-                  {teachers.map((teacher) => (
-                    <option key={teacher.id} value={teacher.id}>{teacher.display_name} · {teacher.subject}</option>
-                  ))}
-                </select>
-                <p className="mt-2 text-xs leading-5 text-stone-400">Tên thầy/cô là đích phản hồi nên sẽ hiển thị; danh tính người gửi vẫn được ẩn.</p>
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
-                <p className="text-sm font-extrabold text-amber-950">{STUDENT_TARGET_LABEL}</p>
-                <p className="mt-1 text-xs leading-5 text-amber-900/75">Flow Giáo viên/Nhà trường giữ kín danh tính của cả người gửi lẫn học sinh; không chọn hay hiển thị tên học sinh riêng lẻ.</p>
-              </div>
-            )}
+            <legend className="text-sm font-extrabold text-stone-900">AI tự nhận diện người nhận</legend>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+              {role === "student" ? (
+                <>
+                  <p className="text-sm font-extrabold text-amber-950">Không cần chọn thầy/cô</p>
+                  <p className="mt-1 text-xs leading-5 text-amber-900/75">Hãy nhắc tên thầy/cô trong nội dung. AI sẽ đối chiếu danh sách giáo viên đang hoạt động và tự gửi đúng người; danh tính người gửi vẫn được ẩn.</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-extrabold text-amber-950">{STUDENT_TARGET_LABEL}</p>
+                  <p className="mt-1 text-xs leading-5 text-amber-900/75">Phản hồi của giáo viên/nhà trường được gửi tới học sinh hoặc lớp học; hệ thống giữ kín danh tính học sinh.</p>
+                </>
+              )}
+            </div>
           </fieldset>
 
           <div className="form-section mt-8 space-y-3">
