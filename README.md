@@ -43,7 +43,7 @@ Browser
   → Supabase private/public tables with RLS
 ```
 
-The private/public boundary is documented in [`docs/privacy-model.md`](docs/privacy-model.md). The security assumptions and abuse controls are in [`docs/threat-model.md`](docs/threat-model.md).
+The private/public boundary is documented in [`docs/privacy-model.md`](docs/privacy-model.md). The security assumptions and abuse controls are in [`docs/threat-model.md`](docs/threat-model.md). The deployment checklist is in [`docs/deployment.md`](docs/deployment.md).
 
 ## Repository structure
 
