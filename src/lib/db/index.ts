@@ -52,16 +52,6 @@ export const mockDatabase = {
       updated_at: "2026-09-07T07:45:00.000Z",
     },
     {
-      id: "post-103",
-      processed_text: "Việc thầy thường xuyên giao thêm 3 đề bài tập nâng cao vào lúc 23h đêm và yêu cầu nộp ngay vào tiết 1 sáng hôm sau khiến chúng em phải thức khuya và không kịp ôn tập cho các môn thi khác vào ngày mai. Chúng em rất mong thầy có thể thông báo bài tập sớm hơn và giãn thời hạn nộp để chúng em đảm bảo sức khỏe ôn thi.",
-      display_sender: "Student bunny",
-      display_target: "Thầy Lê Văn C",
-      target_teacher_id: "33333333-3333-3333-3333-333333333333",
-      status: "published",
-      created_at: "2026-09-06T21:30:00.000Z",
-      updated_at: "2026-09-06T21:30:00.000Z",
-    },
-    {
       id: "post-104",
       processed_text: "Các dạng bài trong đề kiểm tra 1 tiết có độ khó nâng cao vượt bậc so với những gì cô hướng dẫn trên lớp, và hầu như chỉ những bạn đi học thêm tại lớp riêng của cô mới từng được tiếp cận các dạng đề này trước. Em rất hy vọng cô có thể mở rộng hướng dẫn các phương pháp giải nâng cao ngay trong tiết học chính khóa để tất cả học sinh đều có cơ hội học tập công bằng.",
       display_sender: "Student chirpy",

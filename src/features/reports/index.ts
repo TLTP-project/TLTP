@@ -14,10 +14,10 @@ export const createReportSchema = z.object({
 export const mockReports: Report[] = [
   {
     id: "rep-1",
-    post_id: "post-103",
+    post_id: "post-102",
     reporter_id: "user-student-demo",
     reason: "other",
-    details: "Cần bổ sung thêm thông tin về giờ mở cửa phòng thí nghiệm.",
+    details: "Cần xác minh rõ hơn về barem điểm bài thi giữa kỳ.",
     status: "pending",
     created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
     updated_at: new Date(Date.now() - 3600000 * 2).toISOString(),
