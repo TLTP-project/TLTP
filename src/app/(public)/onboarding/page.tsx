@@ -22,13 +22,38 @@ export default function OnboardingPage() {
   const [selectedRole, setSelectedRole] = useState<UserRole>("student");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedRole, setSubmittedRole] = useState<UserRole | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  function handleConfirmRole() {
+  async function handleConfirmRole() {
     setIsSubmitting(true);
-    window.setTimeout(() => {
+    setErrorMessage("");
+
+    const demoEnabled = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+    if (demoEnabled) {
+      window.setTimeout(() => {
+        setIsSubmitting(false);
+        setSubmittedRole(selectedRole);
+      }, 450);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: selectedRole }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setErrorMessage(data.error || "Không thể lưu vai trò.");
+      } else {
+        setSubmittedRole(selectedRole);
+      }
+    } catch {
+      setErrorMessage("Lỗi kết nối máy chủ. Vui lòng thử lại.");
+    } finally {
       setIsSubmitting(false);
-      setSubmittedRole(selectedRole);
-    }, 450);
+    }
   }
 
   if (submittedRole) {
@@ -87,6 +112,8 @@ export default function OnboardingPage() {
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
         <span>Học sinh dùng được ngay. Giáo viên và Nhà trường cần admin xác thực; không ai tự nâng quyền cho mình.</span>
       </div>
+
+      {errorMessage && <p role="alert" className="mt-4 text-sm font-semibold text-rose-600">{errorMessage}</p>}
 
       <button type="button" onClick={handleConfirmRole} disabled={isSubmitting} className="mt-6 h-14 w-full rounded-2xl bg-stone-950 px-4 text-sm font-extrabold text-white shadow-lg shadow-stone-950/10 transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50">
         {isSubmitting ? "Đang lưu lựa chọn..." : "Xác nhận vai trò"}

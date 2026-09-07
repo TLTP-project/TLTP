@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { submitFeedback, checkUserQuota } from "@/features/submissions";
-import { getCurrentDevUser } from "@/features/auth";
+import { getCurrentUser } from "@/features/auth";
 import { checkRateLimit } from "@/lib/security";
 import type { CreateSubmissionInput } from "@/types";
 
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = (await request.json()) as CreateSubmissionInput;
-    const user = getCurrentDevUser();
+    const user = await getCurrentUser();
 
     if (!user) {
       return NextResponse.json(
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  const user = getCurrentDevUser();
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json(
       { error: "Vui lòng đăng nhập để xem hạn mức gửi bài." },

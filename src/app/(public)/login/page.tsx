@@ -4,16 +4,38 @@ import { useState } from "react";
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  function handleGoogleLogin() {
+  async function handleGoogleLogin() {
     setIsLoading(true);
-    // The local demo has no OAuth provider configured yet; production setup uses Supabase Google OAuth.
-    window.setTimeout(() => {
-      window.location.href = "/onboarding";
-    }, 500);
+    setErrorMessage("");
+
+    const demoEnabled = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+    if (demoEnabled) {
+      window.setTimeout(() => {
+        window.location.href = "/onboarding";
+      }, 500);
+      return;
+    }
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/api/auth/callback?next=/onboarding`,
+        },
+      });
+      if (error) setErrorMessage(error.message);
+    } catch {
+      setErrorMessage("Chưa cấu hình đăng nhập Google. Vui lòng thử lại sau.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -40,6 +62,8 @@ export default function LoginPage() {
           </svg>
           {isLoading ? "Đang mở bước tiếp theo..." : "Tiếp tục với Google"}
         </button>
+
+        {errorMessage && <p role="alert" className="mt-4 text-sm font-semibold text-rose-600">{errorMessage}</p>}
 
         <div className="mt-5 flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 text-xs leading-5 text-emerald-900">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />

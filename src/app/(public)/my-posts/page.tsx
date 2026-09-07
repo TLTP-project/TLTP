@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, MessageSquarePlus, Trash2 } from "lucide-react";
 import { mockDatabase } from "@/lib/db";
-import { getCurrentDevUser } from "@/features/auth";
+import { getCurrentDevUser } from "@/features/auth/client";
 import type { PostPublic } from "@/types";
 
 export default function MyPostsPage() {

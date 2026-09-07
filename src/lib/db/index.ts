@@ -1,25 +1,29 @@
 import { createClient } from "@supabase/supabase-js";
-import { env } from "@/lib/config/env";
 import type { PostPublic, Teacher } from "@/types";
 
 // Public / Browser client
 export function createBrowserClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "placeholder-anon-key";
+
   return createClient(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+    supabaseUrl,
+    publishableKey
   );
 }
 
 // Server Admin client (Service role - bypasses RLS for trusted backend operations)
 export function createAdminClient() {
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceKey) {
     throw new Error(
       "SUPABASE_SERVICE_ROLE_KEY is required for trusted server-side database operations."
     );
   }
 
-  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
-  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, serviceKey, {
+  return createClient(supabaseUrl, serviceKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,

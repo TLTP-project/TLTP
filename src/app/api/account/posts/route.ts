@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { mockDatabase } from "@/lib/db";
-import { getCurrentDevUser } from "@/features/auth";
+import { getCurrentUser } from "@/features/auth";
 
 export async function GET() {
-  const user = getCurrentDevUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return NextResponse.json(

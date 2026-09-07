@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mockDatabase } from "@/lib/db";
 import { softDeletePost } from "@/features/submissions";
-import { getCurrentDevUser } from "@/features/auth";
+import { getCurrentUser } from "@/features/auth";
 
 export async function GET(
   _request: NextRequest,
@@ -26,7 +26,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const user = getCurrentDevUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return NextResponse.json(

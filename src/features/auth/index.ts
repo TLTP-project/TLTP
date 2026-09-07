@@ -1,5 +1,6 @@
 import type { UserRole, Profile, VerificationStatus } from "@/types";
 import { env } from "@/lib/config/env";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export interface CurrentUser {
   id: string;
@@ -81,12 +82,68 @@ export async function getUserProfile(userId: string): Promise<Profile | null> {
 }
 
 /**
- * Mock helper to retrieve current active user in dev mode
+ * Returns the authenticated Supabase identity when production auth is enabled.
+ * Local development keeps the deterministic demo identity so the UI can be
+ * previewed without a Supabase project.
  */
-export function getCurrentDevUser(): CurrentUser | null {
-  if (!env.NEXT_PUBLIC_DEMO_MODE) {
+export async function getAuthenticatedUser(): Promise<{ id: string; email: string | null } | null> {
+  if (env.NEXT_PUBLIC_DEMO_MODE) {
+    return {
+      id: "user-student-demo",
+      email: "student@tranphu.edu.vn",
+    };
+  }
+
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) return null;
+
+    return { id: data.user.id, email: data.user.email ?? null };
+  } catch (error) {
+    console.error("Unable to resolve authenticated user:", error);
     return null;
   }
+}
+
+export async function getCurrentUser(): Promise<CurrentUser | null> {
+  const identity = await getAuthenticatedUser();
+  if (!identity) return null;
+
+  if (env.NEXT_PUBLIC_DEMO_MODE) {
+    return {
+      id: identity.id,
+      role: "student",
+      email: identity.email || "student@tranphu.edu.vn",
+    };
+  }
+
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("user_id, email, role, verification_status, created_at, updated_at")
+      .eq("user_id", identity.id)
+      .maybeSingle();
+
+    if (error || !profile || profile.verification_status !== "active") return null;
+
+    return {
+      id: identity.id,
+      role: profile.role as UserRole,
+      email: identity.email || profile.email || "",
+    };
+  } catch (error) {
+    console.error("Unable to load authenticated profile:", error);
+    return null;
+  }
+}
+
+/**
+ * Legacy server helper retained for code that explicitly needs demo mode.
+ */
+export function getCurrentDevUser(): CurrentUser | null {
+  if (!env.NEXT_PUBLIC_DEMO_MODE) return null;
 
   return {
     id: "user-student-demo",

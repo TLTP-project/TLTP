@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { submitReport, getReports } from "@/features/reports";
-import { getCurrentDevUser } from "@/features/auth";
+import { getCurrentUser } from "@/features/auth";
 import type { ReportStatus } from "@/types";
 
 export async function POST(request: NextRequest) {
   try {
-    const user = getCurrentDevUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
         { error: "Vui lòng đăng nhập để gửi báo cáo." },
