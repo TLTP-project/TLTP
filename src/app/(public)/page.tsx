@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
-  Filter,
+  CalendarDays,
   HeartHandshake,
   MessageSquarePlus,
   Search,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { PostCard } from "@/components/posts/PostCard";
 import { Logo } from "@/components/ui/Logo";
+import { ThreeAmbientScene } from "@/components/visual/ThreeAmbientScene";
 import { mockDatabase } from "@/lib/db";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -20,13 +21,15 @@ import type { PostPublic } from "@/types";
 
 gsap.registerPlugin(useGSAP);
 
+type FeedTimeFilter = "newest" | "oldest" | "today" | "7days" | "30days";
+
 export default function HomePage() {
   const demoEnabled = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   const containerRef = useRef<HTMLDivElement>(null);
   const [posts, setPosts] = useState<PostPublic[]>(demoEnabled ? mockDatabase.posts : []);
   const [teachers, setTeachers] = useState(demoEnabled ? mockDatabase.teachers : []);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTeacherId, setSelectedTeacherId] = useState<string>("all");
+  const [timeFilter, setTimeFilter] = useState<FeedTimeFilter>("newest");
   const [isLoading, setIsLoading] = useState(!demoEnabled);
   const [loadError, setLoadError] = useState("");
 
@@ -54,21 +57,47 @@ export default function HomePage() {
 
   const filteredPosts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
+    const now = Date.now();
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
 
-    return posts.filter((post) => {
-      if (post.status !== "published") return false;
-      if (selectedTeacherId !== "all" && post.target_teacher_id !== selectedTeacherId) {
-        return false;
-      }
+    const cutoff =
+      timeFilter === "today"
+        ? startOfToday.getTime()
+        : timeFilter === "7days"
+          ? now - 7 * 24 * 60 * 60 * 1000
+          : timeFilter === "30days"
+            ? now - 30 * 24 * 60 * 60 * 1000
+            : null;
 
-      if (!query) return true;
+    return posts
+      .filter((post) => {
+        if (post.status !== "published") return false;
 
-      return [post.processed_text, post.display_target, post.display_sender]
-        .join(" ")
-        .toLowerCase()
-        .includes(query);
-    });
-  }, [posts, searchQuery, selectedTeacherId]);
+        const createdAt = new Date(post.created_at).getTime();
+        if (cutoff !== null && (!Number.isFinite(createdAt) || createdAt < cutoff)) return false;
+
+        if (!query) return true;
+
+        const teacher = post.target_teacher_id
+          ? teachers.find((item) => item.id === post.target_teacher_id)
+          : undefined;
+
+        return [post.processed_text, post.display_target, teacher?.subject]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      })
+      .sort((first, second) => {
+        const firstTime = new Date(first.created_at).getTime();
+        const secondTime = new Date(second.created_at).getTime();
+        const firstValue = Number.isFinite(firstTime) ? firstTime : 0;
+        const secondValue = Number.isFinite(secondTime) ? secondTime : 0;
+
+        return timeFilter === "oldest" ? firstValue - secondValue : secondValue - firstValue;
+      });
+  }, [posts, searchQuery, teachers, timeFilter]);
 
   useGSAP(
     () => {
@@ -104,9 +133,10 @@ export default function HomePage() {
   return (
     <div ref={containerRef} className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:py-10">
       <section className="hero-section relative isolate overflow-hidden rounded-[2rem] bg-stone-950 px-6 py-8 text-white shadow-2xl shadow-orange-950/10 sm:px-10 sm:py-12 lg:px-14">
+        <ThreeAmbientScene className="pointer-events-none absolute inset-0 z-0" intensity={0.9} />
         <div className="pointer-events-none absolute -right-24 -top-32 -z-10 h-80 w-80 rounded-full bg-orange-500/30 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-40 left-1/3 -z-10 h-96 w-96 rounded-full bg-amber-300/20 blur-3xl" />
-        <div className="grid items-center gap-10 lg:grid-cols-[1fr_auto]">
+        <div className="relative z-10 grid items-center gap-10 lg:grid-cols-[1fr_auto]">
           <div className="max-w-2xl">
             <div className="hero-logo mb-6">
               <Logo size="md" showText={false} />
@@ -167,11 +197,11 @@ export default function HomePage() {
       <section className="surface-card rounded-3xl p-3 sm:p-4">
         <div className="flex flex-col gap-3 sm:flex-row">
           <label className="relative flex-1">
-            <span className="sr-only">Tìm kiếm phản hồi</span>
+            <span className="sr-only">Tìm nội dung hoặc thầy cô</span>
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
             <input
               type="search"
-              placeholder="Tìm nội dung, thầy cô hoặc alias..."
+              placeholder="Tìm nội dung hoặc thầy cô..."
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               className="h-12 w-full rounded-2xl border border-stone-200 bg-white pl-11 pr-4 text-sm text-stone-800 placeholder:text-stone-400 transition-colors focus:border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-500/10"
@@ -179,19 +209,18 @@ export default function HomePage() {
           </label>
 
           <label className="relative sm:w-72">
-            <span className="sr-only">Lọc theo người nhận</span>
-            <Filter className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+            <span className="sr-only">Lọc theo thời gian đăng</span>
+            <CalendarDays className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
             <select
-              value={selectedTeacherId}
-              onChange={(event) => setSelectedTeacherId(event.target.value)}
+              value={timeFilter}
+              onChange={(event) => setTimeFilter(event.target.value as FeedTimeFilter)}
               className="h-12 w-full appearance-none rounded-2xl border border-stone-200 bg-white pl-11 pr-4 text-sm font-semibold text-stone-700 transition-colors focus:border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-500/10"
             >
-              <option value="all">Tất cả đối tượng</option>
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>
-                  {teacher.display_name} · {teacher.subject}
-                </option>
-              ))}
+              <option value="newest">Mới nhất</option>
+              <option value="oldest">Cũ nhất</option>
+              <option value="today">Hôm nay</option>
+              <option value="7days">7 ngày qua</option>
+              <option value="30days">30 ngày qua</option>
             </select>
           </label>
         </div>
