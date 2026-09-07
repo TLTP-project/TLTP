@@ -128,9 +128,8 @@ pnpm build
 
 1. Create a Supabase project and copy its project URL and publishable key.
 2. Run every SQL file in `supabase/migrations/` in order, or use the Supabase CLI with `supabase db push`.
-3. In Supabase Auth, enable Google and add the callback URL:
-   `https://YOUR_DOMAIN/api/auth/callback`
-4. Set the Supabase Site URL to `https://YOUR_DOMAIN` and add local/preview redirect URLs when needed.
+3. In Supabase Auth, enable Google. In Google Cloud, use the Supabase provider callback shown in the dashboard (usually `https://PROJECT_REF.supabase.co/auth/v1/callback`) as the Google OAuth redirect URI.
+4. In Supabase URL Configuration, set the Site URL to `https://YOUR_DOMAIN` and allow the app callback `https://YOUR_DOMAIN/api/auth/callback` plus local/preview variants when needed.
 5. Create the first School profile only through a controlled admin procedure. Never expose a service-role key to the browser.
 
 Required production variables are listed in [`.env.example`](.env.example). `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `TURNSTILE_SECRET_KEY` and `IP_HASH_SALT` are server-only secrets.
