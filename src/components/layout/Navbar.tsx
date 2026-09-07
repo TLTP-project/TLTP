@@ -9,15 +9,16 @@ import { Logo } from "@/components/ui/Logo";
 export function Navbar() {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const demoEnabled = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
   const navItems = [
     { href: "/", label: "Bảng tin", icon: MessageCircleHeart },
     { href: "/submit", label: "Gửi phản hồi", icon: MessageSquarePlus },
     { href: "/my-posts", label: "Bài của tôi", icon: User },
     { href: "/policies", label: "Chính sách", icon: BookOpen },
-    ...((process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true")
+    ...(demoEnabled
       ? [{ href: "/admin/reports", label: "Quản trị demo", icon: ShieldCheck }]
-      : []),
+      : [{ href: "/admin/reports", label: "Quản trị", icon: ShieldCheck }]),
   ];
 
   function closeMenu() {

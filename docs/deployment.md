@@ -68,6 +68,6 @@ The complete variable name list is in [`.env.example`](../.env.example). `NEXT_P
 - Try a second post within 24 hours and verify quota enforcement.
 - Check Vercel logs for OpenAI, Supabase and Turnstile failures without logging secrets or raw feedback.
 
-## Current launch limitation
+## Launch checklist note
 
-The public feed, submission and report paths have production Supabase branches. The visual admin moderation pages are still demo screens; wire their actions to authenticated server routes and `moderation_audit` before giving moderator access to real data.
+The public feed, submission, report and moderation paths have production Supabase branches. Only School profiles with `verification_status = 'active'` can open the protected moderation actions; every action writes to `moderation_audit` and `admin_access_audit`.

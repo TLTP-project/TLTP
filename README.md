@@ -6,9 +6,9 @@ TLTP is an independent, anonymous feedback forum for the Trần Phú school comm
 
 ## Project status
 
-The repository contains a polished Next.js app with a production-oriented Supabase Auth/RLS and data path. Local development intentionally uses deterministic mock data and a local Luna simulation when `NEXT_PUBLIC_DEMO_MODE` is enabled. The admin moderation screens remain demo-only until their server-side admin actions are wired to the audit tables.
+The repository contains a polished Next.js app with a production-oriented Supabase Auth/RLS and data path. Local development intentionally uses deterministic mock data and a local Luna simulation when `NEXT_PUBLIC_DEMO_MODE` is enabled. Production School accounts can review reports and moderate posts through protected server routes with audit records.
 
-Do not advertise the current demo as a live production forum and do not place real student, teacher or school data in it until the launch checklist below is complete.
+Do not advertise an unconfigured deployment as a live production forum and do not place real student, teacher or school data in it until the launch checklist below is complete.
 
 ## Stack
 
@@ -65,7 +65,7 @@ TLTP/
 ├─ src/
 │  ├─ app/
 │  │  ├─ (public)/                   # feed, auth, onboarding, submit, policies
-│  │  ├─ admin/                      # demo moderation views
+│  │  ├─ admin/                      # report review and moderation views
 │  │  ├─ api/                        # auth, onboarding, posts, reports, submissions
 │  │  ├─ layout.tsx
 │  │  └─ globals.css

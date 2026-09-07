@@ -1,16 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ShieldCheck, XCircle, AlertTriangle } from "lucide-react";
 import { mockReports } from "@/features/reports";
 import { resolveReport, moderatePost } from "@/features/moderation";
 import { mockDatabase } from "@/lib/db";
-import type { Report, ReportStatus } from "@/types";
+import type { PostPublic, Report, ReportStatus } from "@/types";
+
+type AdminReport = Report & { post?: PostPublic | null };
 
 export default function AdminReportsPage() {
-  const [reports, setReports] = useState<Report[]>(mockReports);
+  const demoEnabled = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+  const [reports, setReports] = useState<AdminReport[]>(demoEnabled ? mockReports : []);
   const [activeTab, setActiveTab] = useState<ReportStatus | "all">("all");
+  const [isLoading, setIsLoading] = useState(!demoEnabled);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    if (demoEnabled) return;
+
+    fetch("/api/reports", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Không thể tải báo cáo.");
+        setReports(data.reports ?? []);
+      })
+      .catch((error: Error) => setErrorMessage(error.message))
+      .finally(() => setIsLoading(false));
+  }, [demoEnabled]);
 
   const filteredReports = reports.filter(
     (r) => activeTab === "all" || r.status === activeTab
@@ -22,30 +41,53 @@ export default function AdminReportsPage() {
     action: "hide" | "delete" | "dismiss"
   ) {
     if (action === "delete" && !window.confirm("Xóa bài viết này khỏi bảng tin?")) return;
-    if (action === "hide" || action === "delete") {
-      await moderatePost({
-        adminId: "admin-system",
-        postId,
-        action,
-        note: `Actioned via report ${reportId}`,
-      });
 
-      await resolveReport({
-        adminId: "admin-system",
-        reportId,
-        status: "actioned",
-        actionTaken: action === "hide" ? "Đã tạm ẩn bài viết" : "Đã xóa bài viết",
-      });
-    } else {
-      await resolveReport({
-        adminId: "admin-system",
-        reportId,
-        status: "dismissed",
-        actionTaken: "Bác bỏ báo cáo (nội dung hợp lệ)",
-      });
+    setIsProcessing(true);
+    setErrorMessage("");
+    try {
+      if (demoEnabled) {
+        if (action === "hide" || action === "delete") {
+          await moderatePost({
+            adminId: "admin-system",
+            postId,
+            action,
+            note: `Actioned via report ${reportId}`,
+          });
+
+          await resolveReport({
+            adminId: "admin-system",
+            reportId,
+            status: "actioned",
+            actionTaken: action === "hide" ? "Đã tạm ẩn bài viết" : "Đã xóa bài viết",
+          });
+        } else {
+          await resolveReport({
+            adminId: "admin-system",
+            reportId,
+            status: "dismissed",
+            actionTaken: "Bác bỏ báo cáo (nội dung hợp lệ)",
+          });
+        }
+        setReports([...mockReports]);
+      } else {
+        const response = await fetch("/api/reports", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ report_id: reportId, action }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Không thể xử lý báo cáo.");
+        setReports((current) => current.map((report) => (
+          report.id === reportId
+            ? { ...report, ...data.report, status: action === "dismiss" ? "dismissed" : "actioned" }
+            : report
+        )));
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Không thể xử lý báo cáo.");
+    } finally {
+      setIsProcessing(false);
     }
-
-    setReports([...mockReports]);
   }
 
   return (
@@ -69,6 +111,8 @@ export default function AdminReportsPage() {
         </Link>
       </div>
 
+      {errorMessage && <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">{errorMessage}</p>}
+
       {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto border-b border-stone-200 pb-1">
         {(["all", "pending", "actioned", "dismissed"] as const).map((tab) => (
@@ -88,13 +132,15 @@ export default function AdminReportsPage() {
 
       {/* Report Items */}
       <div className="space-y-4">
-        {filteredReports.length === 0 ? (
+        {isLoading ? (
+          <div className="surface-card rounded-3xl p-10 text-center text-sm text-stone-500">Đang tải báo cáo...</div>
+        ) : filteredReports.length === 0 ? (
           <div className="rounded-3xl border border-stone-200 bg-white p-12 text-center text-xs text-stone-400">
             Không có báo cáo nào trong danh mục này.
           </div>
         ) : (
           filteredReports.map((report) => {
-            const targetPost = mockDatabase.posts.find((p) => p.id === report.post_id);
+            const targetPost = report.post || mockDatabase.posts.find((p) => p.id === report.post_id);
             const isPending = report.status === "pending";
 
             return (
@@ -152,18 +198,21 @@ export default function AdminReportsPage() {
                       onClick={() =>
                         handleTakeAction(report.id, report.post_id, "dismiss")
                       }
+                      disabled={isProcessing}
                       className="inline-flex items-center gap-1 rounded-xl border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50"
                     >
                       <XCircle className="h-3.5 w-3.5" /> Bác bỏ báo cáo
                     </button>
                     <button
                       onClick={() => handleTakeAction(report.id, report.post_id, "hide")}
+                      disabled={isProcessing}
                       className="inline-flex items-center gap-1 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
                     >
                       <AlertTriangle className="h-3.5 w-3.5" /> Tạm ẩn bài viết
                     </button>
                     <button
                       onClick={() => handleTakeAction(report.id, report.post_id, "delete")}
+                      disabled={isProcessing}
                       className="inline-flex items-center gap-1 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
                     >
                       Xóa bài viết vĩnh viễn
