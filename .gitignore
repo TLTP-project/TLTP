@@ -2,8 +2,9 @@
 node_modules/
 .pnpm-store/
 
-# Next.js / build output
-.next/
+# SvelteKit / build output
+.svelte-kit/
+.vercel/output/
 out/
 dist/
 build/
@@ -30,7 +31,7 @@ logs/
 *.pid
 *.pid.lock
 
-# Supabase local state
+# Legacy database tooling state
 supabase/.branches/
 supabase/.temp/
 supabase/.cache/
