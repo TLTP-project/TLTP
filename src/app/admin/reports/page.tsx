@@ -21,6 +21,7 @@ export default function AdminReportsPage() {
     postId: string,
     action: "hide" | "delete" | "dismiss"
   ) {
+    if (action === "delete" && !window.confirm("Xóa bài viết này khỏi bảng tin?")) return;
     if (action === "hide" || action === "delete") {
       await moderatePost({
         adminId: "admin-system",
@@ -48,8 +49,8 @@ export default function AdminReportsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 space-y-6">
-      <div className="flex items-center justify-between border-b border-stone-200 pb-5">
+    <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
+      <div className="flex flex-col items-start justify-between gap-4 border-b border-stone-200 pb-5 sm:flex-row sm:items-end">
         <div>
           <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-900 mb-1 border border-amber-200">
             <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
@@ -69,7 +70,7 @@ export default function AdminReportsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-stone-200 pb-1">
+      <div className="flex gap-2 overflow-x-auto border-b border-stone-200 pb-1">
         {(["all", "pending", "actioned", "dismissed"] as const).map((tab) => (
           <button
             key={tab}
@@ -99,7 +100,7 @@ export default function AdminReportsPage() {
             return (
               <div
                 key={report.id}
-                className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm space-y-4"
+                className="surface-card space-y-4 rounded-3xl p-5 sm:p-6"
               >
                 <div className="flex items-center justify-between pb-3 border-b border-stone-100 text-xs">
                   <div className="flex items-center gap-2">
