@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js / build output
+.next/
+out/
+dist/
+build/
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+PLAN.md
+*.pem
+*.key
+*.crt
+
+# Logs and runtime files
+*.log
+logs/
+*.pid
+*.pid.lock
+
+# Supabase local state
+supabase/.branches/
+supabase/.temp/
+supabase/.cache/
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+
+# Local tooling
+.turbo/
+.vercel/
+.eslintcache
+*.tsbuildinfo
