@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   generateAnonymousAlias,
   redactPII,
+  redactPotentialNames,
   replaceTargetWithPlaceholder,
   restoreTargetPlaceholder,
   TARGET_TEACHER_PLACEHOLDER,
@@ -44,5 +45,15 @@ describe("Privacy Engine", () => {
 
     expect(restored).toContain(teacherName);
     expect(restored).not.toContain(TARGET_TEACHER_PLACEHOLDER);
+  });
+
+  it("masks likely Vietnamese person names without touching the teacher placeholder", () => {
+    const redacted = redactPotentialNames(
+      "Bạn Nguyễn Văn B và cô [[TARGET_TEACHER]] có thể trao đổi thêm ạ."
+    );
+
+    expect(redacted).toContain("[PERSON REDACTED]");
+    expect(redacted).toContain("[[TARGET_TEACHER]]");
+    expect(redacted).not.toContain("Nguyễn Văn B");
   });
 });

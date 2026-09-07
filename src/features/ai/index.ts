@@ -3,6 +3,7 @@ import {
   replaceTargetWithPlaceholder,
   restoreTargetPlaceholder,
   redactPII,
+  redactPotentialNames,
   generateAnonymousAlias,
   TARGET_TEACHER_PLACEHOLDER,
 } from "@/lib/privacy";
@@ -97,6 +98,7 @@ export async function processFeedbackWithLuna(
   if (hasTeacherTarget && teacherName) {
     sanitized = replaceTargetWithPlaceholder(sanitized, teacherName);
   }
+  sanitized = redactPotentialNames(sanitized);
 
   // Step 3: Build prompt & call Luna
   const prompt = buildLunaPrompt({
@@ -122,6 +124,10 @@ export async function processFeedbackWithLuna(
 
   // Step 5: Restore canonical teacher name if placeholder was used
   let restoredPublicText = aiResult.public_text;
+  if (hasTeacherTarget && teacherName) {
+    restoredPublicText = replaceTargetWithPlaceholder(restoredPublicText, teacherName);
+  }
+  restoredPublicText = redactPotentialNames(restoredPublicText);
   if (hasTeacherTarget && teacherName) {
     restoredPublicText = restoreTargetPlaceholder(restoredPublicText, teacherName);
   }

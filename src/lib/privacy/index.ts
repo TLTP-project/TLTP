@@ -38,6 +38,10 @@ const TEACHER_ALIASES = [
 
 export const TARGET_TEACHER_PLACEHOLDER = "[[TARGET_TEACHER]]";
 
+const VIETNAMESE_SURNAMES =
+  "Nguyễn|Trần|Lê|Phạm|Hoàng|Vũ|Võ|Đặng|Bùi|Đỗ|Ngô|Dương|Lý|Huỳnh|Phan|Mai|Tạ|Đinh|Cao|Tô|Hồ|Trương|Lương|Đào|Đoàn|Hà|Phùng|Quách|Châu|Tôn|Thái|Kiều|Chung";
+const VIETNAMESE_NAME_PART = "[A-ZÀ-Ỵ][a-zà-ỹ]+";
+
 /**
  * Generates an anonymous alias for display.
  * Changes per post to prevent cross-post tracking.
@@ -117,4 +121,26 @@ export function redactPII(text: string): string {
   );
 
   return result;
+}
+
+/**
+ * Masks likely Vietnamese person names while preserving the canonical teacher
+ * placeholder. This is intentionally conservative and complements, rather
+ * than replaces, the model's identity-redaction instructions.
+ */
+export function redactPotentialNames(text: string): string {
+  if (!text) return text;
+
+  const prefixedName = new RegExp(
+    `\\b(?:bạn|em|anh|chị|thầy|cô|ông|bà)\\s+(?:${VIETNAMESE_SURNAMES})\\s+${VIETNAMESE_NAME_PART}(?:\\s+${VIETNAMESE_NAME_PART})?\\b`,
+    "giu"
+  );
+  const standaloneName = new RegExp(
+    `\\b(?:${VIETNAMESE_SURNAMES})\\s+${VIETNAMESE_NAME_PART}(?:\\s+${VIETNAMESE_NAME_PART})?\\b`,
+    "gu"
+  );
+
+  return text
+    .replace(prefixedName, "[PERSON REDACTED]")
+    .replace(standaloneName, "[PERSON REDACTED]");
 }
