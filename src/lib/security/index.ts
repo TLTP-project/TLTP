@@ -1,4 +1,5 @@
 import { env } from "@/lib/config/env";
+import { createAdminClient } from "@/lib/db";
 import { createHash } from "node:crypto";
 
 export function hashClientIp(ip?: string): string | null {
@@ -52,6 +53,39 @@ export function checkRateLimit(
     remaining: maxRequests - entry.count,
     resetInSeconds,
   };
+}
+
+/**
+ * Uses Supabase as a durable limiter in production and keeps the in-memory
+ * limiter as a best-effort fallback for local development or DB outages.
+ */
+export async function checkPersistentRateLimit(
+  key: string,
+  maxRequests: number = 5,
+  windowSeconds: number = 600
+): Promise<{ allowed: boolean; remaining: number; resetInSeconds: number }> {
+  if (env.NEXT_PUBLIC_DEMO_MODE) {
+    return checkRateLimit(key, maxRequests, windowSeconds);
+  }
+
+  try {
+    const { data, error } = await createAdminClient().rpc("consume_rate_limit", {
+      p_key: key,
+      p_limit: maxRequests,
+      p_window_seconds: windowSeconds,
+    });
+
+    if (error || !data) throw error || new Error("Empty rate limit response");
+
+    return {
+      allowed: Boolean(data.allowed),
+      remaining: Number(data.remaining) || 0,
+      resetInSeconds: Number(data.reset_in_seconds) || windowSeconds,
+    };
+  } catch (error) {
+    console.error("Durable rate limit unavailable; using local fallback:", error);
+    return checkRateLimit(`fallback_${key}`, maxRequests, windowSeconds);
+  }
 }
 
 /**

@@ -38,7 +38,7 @@ Do not advertise an unconfigured deployment as a live production forum and do no
 Browser
   → Next.js App Router + responsive UI
   → Supabase SSR session cookie (production) / demo identity (local only)
-  → server validation, quota and Turnstile checks
+  → server validation, durable quota/IP controls and Turnstile checks
   → one OpenAI Responses API call (structured output)
   → processed public post or `nothing`
   → Supabase private/public tables with RLS

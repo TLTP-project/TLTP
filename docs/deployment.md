@@ -66,6 +66,7 @@ The complete variable name list is in [`.env.example`](../.env.example). `NEXT_P
 - Confirm the public feed never contains `author_id`, raw text or the original IP.
 - Report a post and verify the reporter identity is stored privately.
 - Try a second post within 24 hours and verify quota enforcement.
+- Send six rapid test requests from one IP and verify the durable 5-per-10-minute limiter (the migration must be applied first).
 - Check Vercel logs for OpenAI, Supabase and Turnstile failures without logging secrets or raw feedback.
 
 ## Launch checklist note

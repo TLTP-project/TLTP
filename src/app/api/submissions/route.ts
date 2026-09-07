@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { submitFeedback, checkUserQuota } from "@/features/submissions";
 import { getCurrentUser } from "@/features/auth";
-import { checkRateLimit } from "@/lib/security";
+import { checkPersistentRateLimit, hashClientIp } from "@/lib/security";
 import type { CreateSubmissionInput } from "@/types";
 
 export async function POST(request: NextRequest) {
@@ -12,7 +12,8 @@ export async function POST(request: NextRequest) {
       "127.0.0.1";
 
     // Global IP rate limit: 5 submissions per 10 minutes
-    const rateLimit = checkRateLimit(`submit_ip_${clientIp}`, 5, 600);
+    const rateLimitKey = hashClientIp(clientIp) || "unknown-ip";
+    const rateLimit = await checkPersistentRateLimit(`submit_ip_${rateLimitKey}`, 5, 600);
     if (!rateLimit.allowed) {
       return NextResponse.json(
         {
