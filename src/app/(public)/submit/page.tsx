@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -32,6 +32,7 @@ export default function SubmitPage() {
   const [role, setRole] = useState<UserRole>("student");
   const [targetType, setTargetType] = useState<"teacher" | "school">("teacher");
   const [targetTeacherId, setTargetTeacherId] = useState(mockDatabase.teachers[0]?.id || "");
+  const [teachers, setTeachers] = useState(mockDatabase.teachers);
   const [text, setText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -41,6 +42,21 @@ export default function SubmitPage() {
 
   const charCount = text.length;
   const isLengthValid = charCount >= 10 && charCount <= 1500;
+
+  useEffect(() => {
+    const demoEnabled = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+    if (demoEnabled) return;
+
+    fetch("/api/teachers", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data?.teachers?.length) {
+          setTeachers(data.teachers);
+          setTargetTeacherId(data.teachers[0].id);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   useGSAP(
     () => {
@@ -82,7 +98,7 @@ export default function SubmitPage() {
     setErrorMessage("");
 
     try {
-      const selectedTeacher = mockDatabase.teachers.find((teacher) => teacher.id === targetTeacherId);
+      const selectedTeacher = teachers.find((teacher) => teacher.id === targetTeacherId);
       const targetLabel = targetType === "teacher" && selectedTeacher
         ? selectedTeacher.display_name
         : "Nhà trường & Ban Giám Hiệu";
@@ -273,7 +289,7 @@ export default function SubmitPage() {
                   onChange={(event) => setTargetTeacherId(event.target.value)}
                   className="h-12 w-full rounded-2xl border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-800 focus:border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-500/10"
                 >
-                  {mockDatabase.teachers.map((teacher) => (
+                  {teachers.map((teacher) => (
                     <option key={teacher.id} value={teacher.id}>{teacher.display_name} · {teacher.subject}</option>
                   ))}
                 </select>

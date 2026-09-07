@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, MessageSquarePlus, Trash2 } from "lucide-react";
 import { mockDatabase } from "@/lib/db";
@@ -13,6 +13,17 @@ export default function MyPostsPage() {
     user ? mockDatabase.posts.filter((post) => post.author_id === user.id) : []
   );
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    if (user) return;
+
+    fetch("/api/account/posts", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data?.posts) setPosts(data.posts);
+      })
+      .catch(() => setErrorMessage("Không thể tải bài viết của bạn."));
+  }, [user]);
 
   async function handleDelete(postId: string) {
     if (!window.confirm("Bạn có chắc chắn muốn gỡ bài viết này khỏi bảng tin?")) return;

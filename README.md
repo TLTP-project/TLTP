@@ -1,165 +1,161 @@
-# Trải Lòng Trần Phú (TLTP)
+# TLTP — Trải Lòng Trần Phú
 
-TLTP is an anonymous feedback forum for the Trần Phú school community. It helps students, teachers and the school share experiences, problems and improvement ideas in a calm, useful way.
+TLTP is an independent, anonymous feedback forum for the Trần Phú school community. It helps students, teachers and the school share experiences and improvement ideas in a calm, constructive way.
 
 > TLTP is not the school's official website and does not speak on behalf of the school.
 
-## Repository status
+## Project status
 
-This repository contains a **fully implemented, production-ready Next.js 15 App Router application** with strict TypeScript, Tailwind CSS, Supabase PostgreSQL with Row Level Security (RLS), OpenAI Responses API (`gpt-5.6-luna`), and comprehensive privacy-preserving feedback pipelines.
+The repository contains a polished Next.js demo with a production-oriented Supabase Auth/RLS foundation. Local development intentionally uses deterministic mock data and a local Luna simulation when `NEXT_PUBLIC_DEMO_MODE` is enabled. The public feed, submission store and moderation screens still need to be switched from the in-memory adapters to Supabase before a real launch.
 
-## Tech stack
+Do not advertise the current demo as a live production forum and do not place real student, teacher or school data in it until the launch checklist below is complete.
 
-### 1. Application & Frontend
-- **Framework:** Next.js 15 (App Router, Server Actions & Route Handlers).
-- **UI & Styling:** React 19, Tailwind CSS, Lucide React icons.
-- **Validation & Forms:** Zod, React Hook Form.
-- **Package Manager:** pnpm 11.
+## Stack
 
-### 2. Backend, Database & Auth
-- **Database:** Supabase PostgreSQL with Row Level Security (RLS) policies protecting private data.
-- **Authentication:** Supabase Auth (Google OAuth integration).
-- **Client Libraries:** `@supabase/supabase-js`, `@supabase/ssr`.
+- Next.js 15 App Router and React 19
+- TypeScript, Tailwind CSS and Lucide React
+- GSAP with `@gsap/react` for small, scoped transitions with reduced-motion support
+- Supabase Postgres, RLS and cookie-based SSR Auth (`@supabase/ssr`)
+- OpenAI Responses API with structured output for the Luna rewrite pipeline
+- Zod validation, Vitest tests and GitHub Actions CI/CodeQL
+- pnpm for deterministic dependency management
 
-### 3. AI Pipeline
-- **Provider:** OpenAI Responses API (`store: false`, Structured Outputs).
-- **Model:** `gpt-5.6-luna` with `reasoning.effort: high`.
-- **Tone Processing:** Rewrites harsh/emotional input into polite, constructive Vietnamese while preserving original meaning.
-- **Topic Filtering:** Rejects off-topic or spam submissions with `decision: "nothing"` (no public post created).
+## Product rules
 
-### 4. Privacy & Anti-abuse
-- **Privacy Engine:** Automatic PII scrubbing (emails, VN phone numbers, student IDs, handles), `[[TARGET_TEACHER]]` target placeholder locking and restoration.
-- **Anonymous Aliases:** Server-generated per-post cute aliases (`Student meow meow`, `Teacher chirp chirp`, `School`).
-- **Bot Protection:** Cloudflare Turnstile token validation.
-- **Rate Limiting & Quota:** In-memory sliding window rate limiter, max 1 public post/day and max 3 AI attempts/day with failure refund.
+- A sender chooses Student, Teacher or School during onboarding. School uses the same privacy display policy as Teacher while keeping the public title “School”.
+- Student → Teacher: the teacher target can remain visible; the student is shown as a server-generated cute alias.
+- Teacher → Student: both identities are hidden on the public surface.
+- Relevant feedback is rewritten into gentle, constructive Vietnamese without changing its meaning. Harsh or vulgar wording is softened, not rejected for tone alone.
+- Completely off-topic text returns `nothing` and creates no public post.
+- Relevant text is published immediately after AI processing. The sender sees the published result and may keep or soft-delete it; there is no preview step.
+- Public pages never expose Google identity, raw text, IP hashes, user agents or admin notes.
+- Reports belong in the website. GitHub Issues are for bugs and feature requests only, never real user reports or personal data.
 
-### 5. Testing & CI/CD
-- **Testing:** Vitest unit test suite.
-- **Workflows:** GitHub Actions CI (typecheck, lint, test, build) and GitHub CodeQL analysis.
-
-## Product principles
-
-- Relevant content is published immediately after AI processing; there is no preview step.
-- AI checks whether feedback matches the topic and the selected sender → target relationship.
-- Relevant content is rewritten to be respectful, gentle and clear while preserving its meaning.
-- Off-topic content receives `nothing`; the backend does not create a public post.
-- Identity is hidden only on the public surface; original data, IP addresses and audit logs stay in the restricted backend.
-- Public aliases are generated by the server, for example `Student meow meow`; senders cannot choose their own alias.
-- School uses the same display policy as Teacher while keeping the public role title `School`.
-- Reports for published posts belong in the website; GitHub Issues are only for bugs and features, never real user data.
-
-## High-level architecture
+## Architecture
 
 ```text
 Browser
-  → Next.js App Router
-  → auth/quota/Turnstile checks
-  → one OpenAI Responses API call (GPT-5.6 Luna, Structured Output)
-  → publish processed text or drop `nothing`
-  → Supabase Postgres + RLS
+  → Next.js App Router + responsive UI
+  → Supabase SSR session cookie (production) / demo identity (local only)
+  → server validation, quota and Turnstile checks
+  → one OpenAI Responses API call (structured output)
+  → processed public post or `nothing`
+  → Supabase private/public tables with RLS
 ```
 
-See [`docs/architecture.md`](docs/architecture.md) and [`docs/privacy-model.md`](docs/privacy-model.md) for the public/private data boundary.
+The private/public boundary is documented in [`docs/privacy-model.md`](docs/privacy-model.md). The security assumptions and abuse controls are in [`docs/threat-model.md`](docs/threat-model.md).
 
 ## Repository structure
 
 ```text
 TLTP/
 ├─ .github/
-│  ├─ CODEOWNERS
-│  ├─ dependabot.yml
+│  ├─ CODEOWNERS                     # owner/reviewer routing
+│  ├─ dependabot.yml                 # dependency updates
 │  ├─ pull_request_template.md
-│  ├─ ISSUE_TEMPLATE/{bug.yml,feature.yml,config.yml}
-│  └─ workflows/{ci.yml,codeql.yml}
-├─ docs/                     # Architecture and technical policies
+│  ├─ ISSUE_TEMPLATE/                # bug, feature and config forms
+│  └─ workflows/                     # CI and CodeQL
+├─ docs/                             # architecture and policy notes
 │  ├─ architecture.md
 │  ├─ privacy-model.md
 │  ├─ moderation-policy.md
 │  └─ threat-model.md
-├─ public/                   # Next.js public assets
+├─ public/                           # static assets and favicon
 ├─ src/
 │  ├─ app/
-│  │  ├─ (public)/           # feed, login, onboarding, submit, posts, policies
-│  │  ├─ admin/              # reports and moderation
-│  │  ├─ api/                # auth callback, submissions, posts, reports
+│  │  ├─ (public)/                   # feed, auth, onboarding, submit, policies
+│  │  ├─ admin/                      # demo moderation views
+│  │  ├─ api/                        # auth, onboarding, posts, reports, submissions
 │  │  ├─ layout.tsx
-│  │  ├─ globals.css
-│  │  ├─ error.tsx
-│  │  └─ not-found.tsx
-│  ├─ components/            # Reusable UI components
-│  │  ├─ ui/
-│  │  ├─ layout/
-│  │  ├─ posts/
-│  │  ├─ submit/
-│  │  └─ admin/
-│  ├─ features/              # Domain use cases
-│  │  ├─ ai/                 # prompts, schema, feedback rewrite
-│  │  ├─ auth/
-│  │  ├─ submissions/
+│  │  └─ globals.css
+│  ├─ components/
+│  │  ├─ layout/                     # Navbar and Footer
+│  │  ├─ posts/                      # PostCard and ReportModal
+│  │  └─ ui/                         # shared Logo and primitives
+│  ├─ features/
+│  │  ├─ ai/                         # prompt and rewrite orchestration
+│  │  ├─ auth/                       # server auth and demo client helper
 │  │  ├─ moderation/
-│  │  └─ reports/
-│  ├─ lib/                   # OpenAI, Supabase, privacy, security, config
-│  │  ├─ config/
-│  │  ├─ db/
-│  │  ├─ auth/
-│  │  ├─ openai/
-│  │  ├─ privacy/
-│  │  ├─ security/
-│  │  └─ logger.ts
-│  ├─ server/                # Server actions and queries
-│  ├─ types/                 # Shared types
-│  └─ test-utils/            # Fake-data fixtures and helpers
-├─ supabase/                 # Migrations and database tests
-│  ├─ migrations/
-│  └─ tests/
-├─ tests/                    # Unit, integration and E2E tests
-│  ├─ unit/
-│  ├─ integration/
-│  └─ e2e/
-├─ .env.example             # Variable names only; no secrets
-├─ .gitignore
-├─ CONTRIBUTING.md
-├─ CODE_OF_CONDUCT.md
-├─ CONTENT_POLICY.md
-├─ PRIVACY.md
-├─ SECURITY.md
-├─ GOVERNANCE.md
-└─ LICENSE
+│  │  ├─ reports/
+│  │  └─ submissions/
+│  ├─ lib/
+│  │  ├─ config/                     # validated server environment
+│  │  ├─ db/                         # clients and local fixtures
+│  │  ├─ openai/                     # Responses API adapter
+│  │  ├─ privacy/                    # PII and alias helpers
+│  │  ├─ security/                   # quotas, Turnstile, IP hashing
+│  │  └─ supabase/                   # browser, server and middleware clients
+│  └─ types/                         # shared domain types
+├─ supabase/
+│  └─ migrations/                    # ordered schema and RLS migrations
+├─ tests/unit/                       # privacy, AI and submission tests
+├─ .env.example                      # variable names only
+├─ middleware.ts                     # Supabase session refresh
+├─ package.json
+└─ PLAN.md                           # local-only plan; ignored by Git
 ```
 
-`PLAN.md` is a local-only planning document and is intentionally ignored by Git.
+`PLAN.md` is intentionally ignored by `.gitignore`. Never commit it, `.env.local`, API keys, service-role keys or real feedback data.
 
-## Getting started
+## Local development
 
-Prerequisites: Node.js LTS, pnpm and the Supabase CLI. Once the application package is bootstrapped, the standard commands will be:
+Prerequisites: Node.js LTS and pnpm.
 
 ```bash
 pnpm install
 pnpm dev
+```
+
+The default local mode is a safe demo: it uses mock data, a deterministic demo user and a local Luna response when no OpenAI key is configured. To make that explicit in `.env.local`:
+
+```dotenv
+NEXT_PUBLIC_DEMO_MODE=true
+OPENAI_STORE=false
+OPENAI_MODEL=gpt-5.6-luna
+OPENAI_REASONING_EFFORT=high
+```
+
+Quality checks:
+
+```bash
 pnpm lint
 pnpm typecheck
 pnpm test
-pnpm test:e2e
+pnpm build
 ```
 
-Create a local environment file from the template:
+## Supabase setup
 
-```bash
-cp .env.example .env.local
-```
+1. Create a Supabase project and copy its project URL and publishable key.
+2. Run every SQL file in `supabase/migrations/` in order, or use the Supabase CLI with `supabase db push`.
+3. In Supabase Auth, enable Google and add the callback URL:
+   `https://YOUR_DOMAIN/api/auth/callback`
+4. Set the Supabase Site URL to `https://YOUR_DOMAIN` and add local/preview redirect URLs when needed.
+5. Create the first School profile only through a controlled admin procedure. Never expose a service-role key to the browser.
 
-Never commit `.env.local`, API keys, service-role keys, database dumps or real feedback data.
+Required production variables are listed in [`.env.example`](.env.example). `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `TURNSTILE_SECRET_KEY` and `IP_HASH_SALT` are server-only secrets.
 
-## GitHub workflow
+## Vercel deployment
 
-- `main` is the production branch and direct pushes are blocked.
-- Every change goes through a pull request, review and CI.
-- Maintainers merge changes; external contributors fork the repository and open pull requests.
-- Enable CODEOWNERS, Dependabot, secret scanning, push protection and CodeQL in Organization/repository settings.
-- Reports about real people or posts must use the website's Report feature, not GitHub Issues.
+1. Import `TLTP-project/TLTP` into Vercel. Vercel detects the Next.js framework automatically.
+2. Use the repository root as the project root. Keep the default install/build settings (`pnpm install`, `pnpm build`).
+3. Add environment variables separately for Development, Preview and Production. Set `NEXT_PUBLIC_DEMO_MODE=false` in Production.
+4. Add the Supabase, OpenAI, Turnstile and app URL values from `.env.example`. Redeploy after changing environment variables.
+5. Configure the exact Vercel production URL in Supabase Auth Site URL and Google OAuth redirect allow-list.
+6. Verify login, role onboarding, one-post-per-day quota, AI rewrite, report submission, soft delete and RLS before sharing the URL with students.
 
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md), [`GOVERNANCE.md`](GOVERNANCE.md) and [`SECURITY.md`](SECURITY.md) before contributing.
+Vercel preview deployments are useful for pull requests, but never use real school data in a preview project unless its environment variables and database are isolated.
 
-## License
+## GitHub governance
 
-The code is released under the MIT License. The license does not grant rights to user data, feedback content, identities or private information; those are governed by `PRIVACY.md` and `CONTENT_POLICY.md`.
+The recommended repository model is a public repository inside the `TLTP-project` organization:
+
+- Owner: the project owner, with the highest repository and organization permissions.
+- Maintainers/Admins: limited collaborators who review issues and operate the project.
+- Contributors: fork the repo and open pull requests; they do not receive direct write access to `main`.
+
+Protect `main` with required CI, at least one review, no force-push and squash merges. Keep CODEOWNERS, secret scanning, push protection, Dependabot and CodeQL enabled. Reports about real people must use the in-product Report action, never a public issue.
+
+## License and data
+
+The code is MIT-licensed. That license does not grant rights to user feedback, identities or private school data. See [`PRIVACY.md`](PRIVACY.md), [`CONTENT_POLICY.md`](CONTENT_POLICY.md) and [`SECURITY.md`](SECURITY.md) before launch.

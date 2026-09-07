@@ -6,6 +6,7 @@ export interface CurrentUser {
   id: string;
   role: UserRole;
   email: string;
+  verificationStatus: VerificationStatus;
 }
 
 // In-memory profiles mock for local development and demonstration
@@ -115,6 +116,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       id: identity.id,
       role: "student",
       email: identity.email || "student@tranphu.edu.vn",
+      verificationStatus: "active",
     };
   }
 
@@ -126,12 +128,13 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       .eq("user_id", identity.id)
       .maybeSingle();
 
-    if (error || !profile || profile.verification_status !== "active") return null;
+    if (error || !profile) return null;
 
     return {
       id: identity.id,
       role: profile.role as UserRole,
       email: identity.email || profile.email || "",
+      verificationStatus: profile.verification_status as VerificationStatus,
     };
   } catch (error) {
     console.error("Unable to load authenticated profile:", error);
@@ -149,5 +152,6 @@ export function getCurrentDevUser(): CurrentUser | null {
     id: "user-student-demo",
     role: "student",
     email: "student@tranphu.edu.vn",
+    verificationStatus: "active",
   };
 }

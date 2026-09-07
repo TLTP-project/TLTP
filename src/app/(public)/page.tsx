@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -25,6 +25,18 @@ export default function HomePage() {
   const [posts, setPosts] = useState<PostPublic[]>(mockDatabase.posts);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>("all");
+
+  useEffect(() => {
+    const demoEnabled = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+    if (demoEnabled) return;
+
+    fetch("/api/posts", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data?.posts) setPosts(data.posts);
+      })
+      .catch(() => undefined);
+  }, []);
 
   const filteredPosts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
