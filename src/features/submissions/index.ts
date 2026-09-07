@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { processFeedbackWithLuna } from "@/features/ai";
-import { verifyTurnstileToken, validateSubmissionText } from "@/lib/security";
+import { hashClientIp, verifyTurnstileToken, validateSubmissionText } from "@/lib/security";
+import { env } from "@/lib/config/env";
 import { mockDatabase } from "@/lib/db";
 import type {
   PostPublic,
@@ -152,9 +153,9 @@ export async function submitFeedback(
     target: input.target,
     target_teacher_id: input.target_teacher_id,
     raw_text: input.text,
-    ip_hash: clientIp ? `ip_${clientIp.slice(0, 5)}` : null,
-    model: "gpt-5.6-luna",
-    reasoning_effort: "high",
+    ip_hash: hashClientIp(clientIp),
+    model: env.OPENAI_MODEL,
+    reasoning_effort: env.OPENAI_REASONING_EFFORT,
     ai_decision: "publish",
     created_at: new Date().toISOString(),
   };

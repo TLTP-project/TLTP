@@ -1,4 +1,13 @@
 import { env } from "@/lib/config/env";
+import { createHash } from "node:crypto";
+
+export function hashClientIp(ip?: string): string | null {
+  if (!ip) return null;
+
+  return createHash("sha256")
+    .update(`${env.IP_HASH_SALT}:${ip}`)
+    .digest("hex");
+}
 
 // In-memory sliding window rate limiter
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();

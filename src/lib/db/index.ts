@@ -12,7 +12,13 @@ export function createBrowserClient() {
 
 // Server Admin client (Service role - bypasses RLS for trusted backend operations)
 export function createAdminClient() {
-  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY || env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error(
+      "SUPABASE_SERVICE_ROLE_KEY is required for trusted server-side database operations."
+    );
+  }
+
+  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
   return createClient(env.NEXT_PUBLIC_SUPABASE_URL, serviceKey, {
     auth: {
       persistSession: false,
@@ -33,6 +39,7 @@ export const mockDatabase = {
   posts: [
     {
       id: "post-101",
+      author_id: "user-student-demo",
       processed_text: "Thầy kiểm tra bài cũ đầu giờ với thái độ khá gay gắt và thường so sánh các bạn chưa thuộc bài với học sinh lớp chọn trước mặt cả lớp, khiến chúng em cảm thấy xấu hổ và rất áp lực tâm lý mỗi khi đến tiết Toán. Em hiểu thầy muốn chúng em chăm chỉ hơn, nhưng rất mong thầy có thể nhắc nhở nhẹ nhàng hoặc góp ý riêng để chúng em có thêm động lực học tập.",
       display_sender: "Student meow meow",
       display_target: "Thầy Nguyễn Văn A",

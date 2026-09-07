@@ -26,6 +26,13 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as CreateSubmissionInput;
     const user = getCurrentDevUser();
 
+    if (!user) {
+      return NextResponse.json(
+        { error: "Vui lòng đăng nhập để gửi phản hồi." },
+        { status: 401 }
+      );
+    }
+
     // Enforce role strictly from the authenticated user's profile
     // Users cannot self-grant or elevate roles in the request payload
     const submissionPayload: CreateSubmissionInput = {
@@ -69,6 +76,13 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   const user = getCurrentDevUser();
+  if (!user) {
+    return NextResponse.json(
+      { error: "Vui lòng đăng nhập để xem hạn mức gửi bài." },
+      { status: 401 }
+    );
+  }
+
   const quota = await checkUserQuota(user.id);
   return NextResponse.json({ quota });
 }

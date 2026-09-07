@@ -4,7 +4,7 @@ const envSchema = z.object({
   // Supabase
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().default("https://placeholder.supabase.co"),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().default("placeholder-anon-key"),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().optional().default("placeholder-service-key"),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 
   // OpenAI Luna
   OPENAI_API_KEY: z.string().optional().default(""),
@@ -18,7 +18,9 @@ const envSchema = z.object({
   TURNSTILE_SECRET_KEY: z.string().optional().default(""),
 
   // Application
+  NEXT_PUBLIC_DEMO_MODE: z.coerce.boolean().default(process.env.NODE_ENV !== "production"),
   ADMIN_USER_IDS: z.string().optional().default(""),
+  IP_HASH_SALT: z.string().optional().default("development-only-ip-salt"),
   RAW_DATA_RETENTION_DAYS: z.coerce.number().default(90),
   NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
 });
@@ -40,6 +42,8 @@ function parseEnv(): Env {
     ADMIN_USER_IDS: process.env.ADMIN_USER_IDS,
     RAW_DATA_RETENTION_DAYS: process.env.RAW_DATA_RETENTION_DAYS,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    NEXT_PUBLIC_DEMO_MODE: process.env.NEXT_PUBLIC_DEMO_MODE,
+    IP_HASH_SALT: process.env.IP_HASH_SALT,
   });
 
   if (!parsed.success) {

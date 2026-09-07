@@ -10,7 +10,9 @@ import type { PostPublic } from "@/types";
 export default function MyPostsPage() {
   const user = getCurrentDevUser();
   const [posts, setPosts] = useState<PostPublic[]>(
-    mockDatabase.posts.filter((p) => p.author_id === user.id || p.id === "post-101")
+    user
+      ? mockDatabase.posts.filter((p) => p.author_id === user.id)
+      : []
   );
 
   async function handleDelete(postId: string) {

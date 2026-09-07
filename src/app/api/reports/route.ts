@@ -6,6 +6,13 @@ import type { ReportStatus } from "@/types";
 export async function POST(request: NextRequest) {
   try {
     const user = getCurrentDevUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Vui lòng đăng nhập để gửi báo cáo." },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
 
     const result = await submitReport(user.id, body);

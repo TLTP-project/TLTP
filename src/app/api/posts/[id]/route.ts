@@ -28,6 +28,13 @@ export async function DELETE(
   const { id } = await params;
   const user = getCurrentDevUser();
 
+  if (!user) {
+    return NextResponse.json(
+      { error: "Vui lòng đăng nhập để xóa bài viết." },
+      { status: 401 }
+    );
+  }
+
   const result = await softDeletePost(user.id, id);
   if (!result.success) {
     return NextResponse.json({ error: result.error }, { status: 400 });

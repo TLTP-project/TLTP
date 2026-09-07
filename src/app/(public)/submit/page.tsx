@@ -94,7 +94,12 @@ export default function SubmitPage() {
           target: targetLabel,
           target_teacher_id: targetType === "teacher" ? targetTeacherId : undefined,
           text,
-          turnstile_token: "dev-dummy-token",
+          // The local demo bypass is intentionally never sent from production builds.
+          turnstile_token:
+            process.env.NODE_ENV !== "production" ||
+            process.env.NEXT_PUBLIC_DEMO_MODE === "true"
+              ? "dev-dummy-token"
+              : undefined,
         }),
       });
 

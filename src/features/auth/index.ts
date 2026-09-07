@@ -1,4 +1,11 @@
 import type { UserRole, Profile, VerificationStatus } from "@/types";
+import { env } from "@/lib/config/env";
+
+export interface CurrentUser {
+  id: string;
+  role: UserRole;
+  email: string;
+}
 
 // In-memory profiles mock for local development and demonstration
 const mockProfiles = new Map<string, Profile>([
@@ -76,7 +83,11 @@ export async function getUserProfile(userId: string): Promise<Profile | null> {
 /**
  * Mock helper to retrieve current active user in dev mode
  */
-export function getCurrentDevUser(): { id: string; role: UserRole; email: string } {
+export function getCurrentDevUser(): CurrentUser | null {
+  if (!env.NEXT_PUBLIC_DEMO_MODE) {
+    return null;
+  }
+
   return {
     id: "user-student-demo",
     role: "student",
