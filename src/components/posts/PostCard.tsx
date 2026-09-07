@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Flag, Trash2, Sparkles, MessageCircle } from "lucide-react";
+import { Flag, MessageCircle, Sparkles, Trash2 } from "lucide-react";
 import { ReportModal } from "./ReportModal";
 import type { PostPublic } from "@/types";
 
@@ -15,23 +15,26 @@ export function PostCard({ post, isAuthor = false, onDeleted }: PostCardProps) {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleted, setIsDeleted] = useState(post.status === "deleted");
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function handleDelete() {
-    if (!confirm("Bạn có chắc chắn muốn xóa bài viết này? Bài viết sẽ được ẩn khỏi trang công khai.")) {
-      return;
-    }
+    if (!window.confirm("Bạn có chắc chắn muốn gỡ bài viết này khỏi bảng tin?")) return;
 
     setIsDeleting(true);
+    setErrorMessage("");
+
     try {
-      const res = await fetch(`/api/posts/${post.id}`, { method: "DELETE" });
-      if (res.ok) {
-        setIsDeleted(true);
-        onDeleted?.(post.id);
-      } else {
-        alert("Không thể xóa bài viết. Vui lòng thử lại.");
+      const response = await fetch(`/api/posts/${post.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        setErrorMessage(data?.error || "Không thể xóa bài viết. Vui lòng thử lại.");
+        return;
       }
+
+      setIsDeleted(true);
+      onDeleted?.(post.id);
     } catch {
-      alert("Lỗi kết nối máy chủ");
+      setErrorMessage("Lỗi kết nối máy chủ. Vui lòng thử lại.");
     } finally {
       setIsDeleting(false);
     }
@@ -39,81 +42,81 @@ export function PostCard({ post, isAuthor = false, onDeleted }: PostCardProps) {
 
   if (isDeleted) {
     return (
-      <div className="rounded-2xl border border-stone-200 bg-stone-100/60 p-4 text-center text-xs text-stone-500 italic">
-        Bài viết này đã được gỡ bỏ bởi người gửi.
+      <div className="rounded-2xl border border-stone-200 bg-stone-100/70 p-5 text-center text-sm text-stone-500">
+        <p className="font-semibold">Bài viết này đã được gỡ khỏi bảng tin.</p>
+        <p className="mt-1 text-xs">Nội dung riêng tư vẫn được lưu theo chính sách của TLTP.</p>
       </div>
     );
   }
 
-  const formattedDate = new Date(post.created_at).toLocaleDateString("vi-VN", {
+  const formattedDate = new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    day: "numeric",
-    month: "numeric",
-  });
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date(post.created_at));
 
   return (
-    <article className="rounded-2xl border border-amber-900/10 bg-white p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
-      {/* Header: Sender & Target Badges */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-3.5 border-b border-stone-100">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Sender alias */}
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900 border border-amber-200/60">
+    <article className="surface-card rounded-3xl p-5 transition-transform duration-200 hover:-translate-y-0.5 sm:p-6">
+      <header className="flex flex-col gap-3 border-b border-stone-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-950">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
             {post.display_sender}
           </span>
-
-          <span className="text-xs text-stone-400">gửi tới</span>
-
-          {/* Target */}
-          <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-800">
-            <MessageCircle className="h-3 w-3 text-stone-500" />
-            {post.display_target}
+          <span className="text-xs font-medium text-stone-400">gửi tới</span>
+          <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-xs font-bold text-stone-800">
+            <MessageCircle className="h-3.5 w-3.5 shrink-0 text-stone-500" />
+            <span className="truncate">{post.display_target}</span>
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span suppressHydrationWarning className="text-[11px] text-stone-400">{formattedDate}</span>
-          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50/80 px-2 py-0.5 rounded-md">
-            <Sparkles className="h-3 w-3" /> AI đã tinh chỉnh
+        <div className="flex items-center gap-2 text-xs text-stone-400 sm:shrink-0">
+          <time dateTime={post.created_at}>{formattedDate}</time>
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 font-semibold text-amber-700">
+            <Sparkles className="h-3 w-3" />
+            AI đã tinh chỉnh
           </span>
         </div>
-      </div>
+      </header>
 
-      {/* Main Content: Rewritten Constructive Text */}
-      <div className="py-4">
-        <p className="text-sm leading-relaxed text-stone-800 whitespace-pre-wrap font-normal">
-          {post.processed_text}
-        </p>
-      </div>
+      <p className="py-5 text-[0.95rem] leading-7 text-stone-800 whitespace-pre-wrap">
+        {post.processed_text}
+      </p>
 
-      {/* Footer: Disclaimer & Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-stone-100 text-xs">
-        <p className="text-[11px] text-stone-400 italic">
-          * Trải nghiệm chia sẻ từ thành viên, không phải kết luận chính thức.
+      <footer className="flex flex-col gap-3 border-t border-stone-100 pt-4 text-xs sm:flex-row sm:items-center sm:justify-between">
+        <p className="max-w-xl text-stone-400">
+          Trải nghiệm do thành viên chia sẻ, không phải kết luận chính thức.
         </p>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:shrink-0">
           {isAuthor && (
             <button
+              type="button"
               onClick={handleDelete}
               disabled={isDeleting}
-              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              {isDeleting ? "Đang xóa..." : "Xóa bài (Delete)"}
+              {isDeleting ? "Đang gỡ..." : "Gỡ bài"}
             </button>
           )}
 
           <button
+            type="button"
             onClick={() => setIsReportOpen(true)}
-            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-stone-500 hover:bg-stone-100 hover:text-stone-700 transition-colors"
+            aria-label={`Báo cáo phản hồi ${post.display_target}`}
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 font-semibold text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-800"
           >
             <Flag className="h-3.5 w-3.5" />
             Báo cáo
           </button>
         </div>
-      </div>
+      </footer>
+
+      {errorMessage && <p className="mt-3 text-right text-xs font-medium text-rose-600">{errorMessage}</p>}
 
       <ReportModal
         postId={post.id}

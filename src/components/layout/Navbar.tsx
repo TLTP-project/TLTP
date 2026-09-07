@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquarePlus, BookOpen, ShieldCheck, User, MessageCircleHeart } from "lucide-react";
+import { Menu, X, MessageSquarePlus, BookOpen, ShieldCheck, User, MessageCircleHeart } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 
 export function Navbar() {
   const pathname = usePathname();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navItems = [
     { href: "/", label: "Bảng tin", icon: MessageCircleHeart },
@@ -16,41 +18,89 @@ export function Navbar() {
     { href: "/admin/reports", label: "Quản trị", icon: ShieldCheck },
   ];
 
+  function closeMenu() {
+    setIsMenuOpen(false);
+  }
+
+  function isItemActive(href: string) {
+    return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+  }
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-stone-200/90 bg-white shadow-xs">
-      <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-3 sm:px-6 gap-2">
+    <header className="sticky top-0 z-40 w-full border-b border-stone-200/80 bg-[#fffaf5]/90 shadow-sm backdrop-blur-xl">
+      <div className="mx-auto flex h-[4.5rem] max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
         {/* Brand Logo */}
         <Link href="/" className="flex items-center flex-shrink-0 group">
           <Logo size="sm" showTagline={false} />
         </Link>
 
-        {/* Navigation Links - Fully visible, high contrast, non-overflowing */}
-        <nav className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto py-1">
+        {/* Desktop navigation */}
+        <nav aria-label="Điều hướng chính" className="hidden items-center gap-1 lg:flex">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            const isActive = isItemActive(item.href);
 
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-bold transition-all duration-150 flex-shrink-0 ${
+                aria-current={isActive ? "page" : undefined}
+                className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors duration-150 ${
                   isActive
-                    ? "bg-amber-100 text-amber-950 border border-amber-300/80 shadow-xs"
-                    : "text-stone-700 hover:bg-amber-50/70 hover:text-amber-900"
+                    ? "bg-stone-900 text-white shadow-sm"
+                    : "text-stone-600 hover:bg-amber-100/70 hover:text-stone-950"
                 }`}
               >
                 <Icon
-                  className={`h-4 w-4 flex-shrink-0 ${
-                    isActive ? "text-amber-700" : "text-stone-500"
+                  className={`h-4 w-4 shrink-0 ${
+                    isActive ? "text-amber-300" : "text-stone-400"
                   }`}
                 />
-                <span className="whitespace-nowrap">{item.label}</span>
+                <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
+
+        <button
+          type="button"
+          aria-label={isMenuOpen ? "Đóng menu" : "Mở menu"}
+          aria-expanded={isMenuOpen}
+          aria-controls="mobile-navigation"
+          onClick={() => setIsMenuOpen((open) => !open)}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-700 shadow-sm transition-colors hover:bg-amber-50 lg:hidden"
+        >
+          {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
       </div>
+
+      {isMenuOpen && (
+        <div className="border-t border-stone-200/80 bg-white px-4 py-3 shadow-lg lg:hidden">
+          <nav id="mobile-navigation" aria-label="Điều hướng di động" className="mx-auto grid max-w-6xl gap-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = isItemActive(item.href);
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={closeMenu}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
+                    isActive
+                      ? "bg-stone-900 text-white"
+                      : "text-stone-700 hover:bg-amber-50 hover:text-stone-950"
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 ${isActive ? "text-amber-300" : "text-stone-400"}`} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      )}
     </header>
   );
 }
