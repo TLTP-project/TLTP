@@ -45,9 +45,16 @@ Set these in Vercel Project Settings → Environment Variables. Use separate val
 | `TURNSTILE_SECRET_KEY` | server secret | Cloudflare Turnstile secret |
 | `IP_HASH_SALT` | server secret | long random value |
 | `ADMIN_USER_IDS` | server config | comma-separated Supabase user UUIDs used only for administrator bootstrap |
+| `ADMIN_GITHUB_LOGINS` | server secret | comma-separated GitHub usernames allowed to administer TLTP; omit `@` |
 | `NEXT_PUBLIC_APP_URL` | public config | `https://YOUR_DOMAIN` |
 
 The complete variable name list is in [`.env.example`](../.env.example). `NEXT_PUBLIC_*` values are embedded into the client build, so they must never contain secrets. After changing Vercel variables, redeploy; a previous build does not receive newly added values.
+
+## GitHub OAuth and administrator access
+
+Create a GitHub OAuth App with the production site as its homepage and `https://PROJECT_REF.supabase.co/auth/v1/callback` as its authorization callback URL. Enable GitHub under Supabase Authentication providers and paste the OAuth App client ID and client secret.
+
+Set `ADMIN_GITHUB_LOGINS` in Vercel to the exact, comma-separated GitHub usernames that should receive platform administration access. This explicit allowlist avoids requesting broad repository or organization scopes from every person who signs in. On successful GitHub login, the server synchronizes matching accounts into `platform_admins`; removing a username from the environment variable revokes environment-managed access on that account's next GitHub login. Manually granted rows are not removed by this synchronization.
 
 ## 4. Deploy to Vercel
 

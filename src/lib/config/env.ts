@@ -25,6 +25,7 @@ const envSchema = z.object({
   // Application
   NEXT_PUBLIC_DEMO_MODE: booleanEnv.default(process.env.NODE_ENV !== "production"),
   ADMIN_USER_IDS: z.string().optional().default(""),
+  ADMIN_GITHUB_LOGINS: z.string().optional().default(""),
   IP_HASH_SALT: z.string().optional().default("development-only-ip-salt"),
   RAW_DATA_RETENTION_DAYS: z.coerce.number().default(90),
   NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
@@ -45,6 +46,7 @@ function parseEnv(): Env {
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
     ADMIN_USER_IDS: process.env.ADMIN_USER_IDS,
+    ADMIN_GITHUB_LOGINS: process.env.ADMIN_GITHUB_LOGINS,
     RAW_DATA_RETENTION_DAYS: process.env.RAW_DATA_RETENTION_DAYS,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_DEMO_MODE: process.env.NEXT_PUBLIC_DEMO_MODE,
