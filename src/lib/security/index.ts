@@ -93,9 +93,16 @@ export async function verifyTurnstileToken(
   token?: string,
   ip?: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (!env.TURNSTILE_SECRET_KEY || env.TURNSTILE_SECRET_KEY === "dummy-secret-key") {
-    // Development or test bypass
+  if (env.NEXT_PUBLIC_DEMO_MODE || process.env.NODE_ENV !== "production") {
+    // Development and tests intentionally bypass the external challenge.
     return { success: true };
+  }
+
+  if (!env.TURNSTILE_SECRET_KEY || env.TURNSTILE_SECRET_KEY === "dummy-secret-key") {
+    return {
+      success: false,
+      error: "Dịch vụ chống bot chưa được cấu hình. Vui lòng thử lại sau.",
+    };
   }
 
   if (!token) {

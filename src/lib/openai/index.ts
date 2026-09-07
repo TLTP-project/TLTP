@@ -47,8 +47,13 @@ export const lunaResponseSchema = {
 export async function callLunaRewrite(
   prompt: string
 ): Promise<AiRewriteResult> {
-  // If no API key is provided, provide a graceful development simulation
+  // The local demo can run without a key, but production must never silently
+  // publish a simulated AI response.
   if (!env.OPENAI_API_KEY || env.OPENAI_API_KEY === "dummy-key-for-scaffold") {
+    if (!env.NEXT_PUBLIC_DEMO_MODE) {
+      throw new Error("OPENAI_API_KEY is required when demo mode is disabled.");
+    }
+
     return simulateDevelopmentLunaRewrite(prompt);
   }
 

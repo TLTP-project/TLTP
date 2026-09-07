@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+const booleanEnv = z.preprocess((value) => {
+  if (typeof value === "string") return value.toLowerCase() === "true";
+  return value;
+}, z.boolean());
+
 const envSchema = z.object({
   // Supabase
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().default("https://placeholder.supabase.co"),
@@ -10,7 +15,7 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional().default(""),
   OPENAI_MODEL: z.string().default("gpt-5.6-luna"),
   OPENAI_REASONING_EFFORT: z.enum(["low", "medium", "high"]).default("high"),
-  OPENAI_STORE: z.coerce.boolean().default(false),
+  OPENAI_STORE: booleanEnv.default(false),
   OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().default(1200),
 
   // Anti-abuse
@@ -18,7 +23,7 @@ const envSchema = z.object({
   TURNSTILE_SECRET_KEY: z.string().optional().default(""),
 
   // Application
-  NEXT_PUBLIC_DEMO_MODE: z.coerce.boolean().default(process.env.NODE_ENV !== "production"),
+  NEXT_PUBLIC_DEMO_MODE: booleanEnv.default(process.env.NODE_ENV !== "production"),
   ADMIN_USER_IDS: z.string().optional().default(""),
   IP_HASH_SALT: z.string().optional().default("development-only-ip-salt"),
   RAW_DATA_RETENTION_DAYS: z.coerce.number().default(90),
