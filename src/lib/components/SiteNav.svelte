@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from "$app/stores";
-  import { BookOpen, Menu, MessageCircleHeart, MessageSquarePlus, ShieldCheck, User, X } from "@lucide/svelte";
+  import { BookOpen, LogIn, Menu, MessageCircleHeart, MessageSquarePlus, ShieldCheck, User, X } from "@lucide/svelte";
   import Logo from "$lib/components/Logo.svelte";
 
   let isMenuOpen = false;
@@ -10,6 +10,7 @@
     { href: "/my-posts", label: "Bài của tôi", icon: User },
     { href: "/policies", label: "Chính sách", icon: BookOpen },
     { href: "/admin/reports", label: "Quản trị", icon: ShieldCheck },
+    { href: "/login", label: "Đăng nhập", icon: LogIn },
   ];
 
   function isActive(href: string) {

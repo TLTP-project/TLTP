@@ -5,7 +5,7 @@ import type { Report, ReportStatus } from "@/types";
 export const createReportSchema = z.object({
   post_id: z.string().min(1, "Thiếu mã bài viết"),
   reason: z.enum(["harassment", "pii_leak", "safety_threat", "misinformation", "other"], {
-    errorMap: () => ({ message: "Vui lòng chọn lý do báo cáo hợp lệ" }),
+    error: "Vui lòng chọn lý do báo cáo hợp lệ",
   }),
   details: z.string().max(500, "Chi tiết không quá 500 ký tự").optional(),
 });
@@ -30,7 +30,7 @@ export async function submitReport(
 ): Promise<{ success: boolean; report?: Report; error?: string }> {
   const parsed = createReportSchema.safeParse(input);
   if (!parsed.success) {
-    return { success: false, error: parsed.error.errors[0]?.message };
+    return { success: false, error: parsed.error.issues[0]?.message };
   }
 
   const post = mockDatabase.posts.find((p) => p.id === input.post_id);

@@ -1,0 +1,5 @@
+<script lang="ts">
+  import type { PageData } from "./$types";
+  export let data: PageData;
+</script>
+<section class="surface-card overflow-hidden rounded-3xl"><div class="border-b border-stone-200 px-5 py-4"><h2 class="font-black text-stone-900">Báo cáo cần xem xét</h2><p class="mt-1 text-sm text-stone-500">{data.reports.length} báo cáo trong hàng đợi.</p></div>{#if data.reports.length}<div class="divide-y divide-stone-200">{#each data.reports as report}<div class="grid gap-3 px-5 py-5 sm:grid-cols-[1fr_auto] sm:items-center"><div><div class="flex flex-wrap items-center gap-2"><span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">{report.status}</span><span class="text-xs text-stone-400">{report.reason}</span></div><p class="mt-2 text-sm text-stone-700">{report.details ?? "Không có chi tiết."}</p></div><a href={`/posts/${report.post_id}`} class="text-sm font-bold text-amber-700 hover:underline">Xem bài ↗</a></div>{/each}</div>{:else}<p class="px-5 py-10 text-center text-sm text-stone-500">Không có báo cáo mới.</p>{/if}</section>

@@ -1,0 +1,1 @@
+<section class="surface-card rounded-3xl p-6"><h2 class="font-black text-stone-900">Kiểm duyệt</h2><p class="mt-2 text-sm leading-6 text-stone-500">Các thao tác ẩn, khôi phục và xoá bài sẽ được nối vào audit log Neon ở bước triển khai production.</p></section>

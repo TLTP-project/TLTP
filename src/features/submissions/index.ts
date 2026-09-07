@@ -73,7 +73,7 @@ export async function submitFeedback(
   clientUserAgent?: string,
 ): Promise<SubmissionServiceResult> {
   const validation = submissionInputSchema.safeParse(input);
-  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message || "Dữ liệu không hợp lệ" };
+  if (!validation.success) return { success: false, error: validation.error.issues[0]?.message || "Dữ liệu không hợp lệ" };
 
   const textValidation = validateSubmissionText(input.text);
   if (!textValidation.valid) return { success: false, error: textValidation.error };
