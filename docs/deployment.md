@@ -44,6 +44,7 @@ Set these in Vercel Project Settings → Environment Variables. Use separate val
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | public | Cloudflare Turnstile site key |
 | `TURNSTILE_SECRET_KEY` | server secret | Cloudflare Turnstile secret |
 | `IP_HASH_SALT` | server secret | long random value |
+| `ADMIN_USER_IDS` | server config | comma-separated Supabase user UUIDs used only for administrator bootstrap |
 | `NEXT_PUBLIC_APP_URL` | public config | `https://YOUR_DOMAIN` |
 
 The complete variable name list is in [`.env.example`](../.env.example). `NEXT_PUBLIC_*` values are embedded into the client build, so they must never contain secrets. After changing Vercel variables, redeploy; a previous build does not receive newly added values.
@@ -71,4 +72,4 @@ The complete variable name list is in [`.env.example`](../.env.example). `NEXT_P
 
 ## Launch checklist note
 
-The public feed, submission, report and moderation paths have production Supabase branches. Only School profiles with `verification_status = 'active'` can open the protected moderation actions; every action writes to `moderation_audit` and `admin_access_audit`.
+The public feed, submission, report and moderation paths have production Supabase branches. Platform administration is independent from the `student`, `teacher`, and `school` profile roles. Grant access by inserting an authenticated user into `platform_admins`, or temporarily bootstrap a user through `ADMIN_USER_IDS`; every moderation action writes to `moderation_audit` and `admin_access_audit`.

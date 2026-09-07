@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "school" || user.verificationStatus !== "active") {
+  if (!user?.isAdmin) {
     return NextResponse.json({ error: "Bạn không có quyền xem báo cáo." }, { status: 403 });
   }
 
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "school" || user.verificationStatus !== "active") {
+  if (!user?.isAdmin) {
     return NextResponse.json({ error: "Bạn không có quyền xử lý báo cáo." }, { status: 403 });
   }
 

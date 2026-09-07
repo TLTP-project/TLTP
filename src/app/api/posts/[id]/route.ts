@@ -74,7 +74,7 @@ export async function PATCH(
   const { id } = await params;
   const user = await getCurrentUser();
 
-  if (!user || user.role !== "school" || user.verificationStatus !== "active") {
+  if (!user?.isAdmin) {
     return NextResponse.json({ error: "Bạn không có quyền kiểm duyệt bài viết." }, { status: 403 });
   }
 

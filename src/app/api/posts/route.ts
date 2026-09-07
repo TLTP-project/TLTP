@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
   if (scope === "moderation") {
     const user = await getCurrentUser();
-    if (!user || user.role !== "school" || user.verificationStatus !== "active") {
+    if (!user?.isAdmin) {
       return NextResponse.json({ error: "Bạn không có quyền xem nội dung kiểm duyệt." }, { status: 403 });
     }
 

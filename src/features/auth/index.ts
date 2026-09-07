@@ -7,6 +7,33 @@ export interface CurrentUser {
   role: UserRole;
   email: string;
   verificationStatus: VerificationStatus;
+  isAdmin: boolean;
+}
+
+function configuredAdminUserIds(): Set<string> {
+  return new Set(
+    env.ADMIN_USER_IDS
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+  );
+}
+
+async function isPlatformAdmin(userId: string): Promise<boolean> {
+  if (configuredAdminUserIds().has(userId)) return true;
+
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data, error } = await supabase.rpc("is_admin");
+    if (error) {
+      console.error("Unable to resolve platform administrator status:", error);
+      return false;
+    }
+    return data === true;
+  } catch (error) {
+    console.error("Unable to check platform administrator status:", error);
+    return false;
+  }
 }
 
 // In-memory profiles mock for local development and demonstration
@@ -117,6 +144,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       role: "student",
       email: identity.email || "student@tranphu.edu.vn",
       verificationStatus: "active",
+      isAdmin: true,
     };
   }
 
@@ -135,6 +163,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       role: profile.role as UserRole,
       email: identity.email || profile.email || "",
       verificationStatus: profile.verification_status as VerificationStatus,
+      isAdmin: await isPlatformAdmin(identity.id),
     };
   } catch (error) {
     console.error("Unable to load authenticated profile:", error);
@@ -153,5 +182,6 @@ export function getCurrentDevUser(): CurrentUser | null {
     role: "student",
     email: "student@tranphu.edu.vn",
     verificationStatus: "active",
+    isAdmin: true,
   };
 }
