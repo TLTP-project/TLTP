@@ -41,7 +41,7 @@ Set these in Vercel Project Settings → Environment Variables. Use separate val
 | `OPENAI_MODEL` | server config | `gpt-5.6-luna` |
 | `OPENAI_REASONING_EFFORT` | server config | `high` |
 | `OPENAI_STORE` | server config | `false` |
-| `TURNSTILE_SITE_KEY` | public | Cloudflare Turnstile site key |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | public | Cloudflare Turnstile site key |
 | `TURNSTILE_SECRET_KEY` | server secret | Cloudflare Turnstile secret |
 | `IP_HASH_SALT` | server secret | long random value |
 | `NEXT_PUBLIC_APP_URL` | public config | `https://YOUR_DOMAIN` |

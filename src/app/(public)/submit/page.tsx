@@ -13,6 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
+import { TurnstileWidget } from "@/components/security/TurnstileWidget";
 import { mockDatabase } from "@/lib/db";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -41,10 +42,12 @@ export default function SubmitPage() {
   const [publishedPost, setPublishedPost] = useState<PostPublic | null>(null);
   const [hasKept, setHasKept] = useState(false);
   const [hasDeleted, setHasDeleted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const charCount = text.length;
   const isLengthValid = charCount >= 10 && charCount <= 1500;
-  const canSubmit = isLengthValid && (role !== "student" || Boolean(targetTeacherId));
+  const canSubmit = isLengthValid && (role !== "student" || Boolean(targetTeacherId)) && (demoEnabled || Boolean(turnstileToken));
 
   useEffect(() => {
     if (demoEnabled) return;
@@ -129,19 +132,21 @@ export default function SubmitPage() {
           target_teacher_id: role === "student" ? targetTeacherId : undefined,
           text: text.trim(),
           turnstile_token:
-            process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true"
-              ? "dev-dummy-token"
-              : undefined,
+            demoEnabled ? "dev-dummy-token" : turnstileToken || undefined,
         }),
       });
 
       const data = await response.json();
       if (!response.ok) {
+        setTurnstileToken("");
+        setTurnstileResetKey((key) => key + 1);
         setErrorMessage(data.error || "Không thể xử lý phản hồi.");
       } else {
         setPublishedPost(data.post);
       }
     } catch {
+      setTurnstileToken("");
+      setTurnstileResetKey((key) => key + 1);
       setErrorMessage("Lỗi kết nối máy chủ. Vui lòng thử lại.");
     } finally {
       setIsSubmitting(false);
@@ -171,6 +176,8 @@ export default function SubmitPage() {
     setHasKept(false);
     setText("");
     setErrorMessage("");
+    setTurnstileToken("");
+    setTurnstileResetKey((key) => key + 1);
   }
 
   return (
@@ -324,6 +331,20 @@ export default function SubmitPage() {
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
             <span>Danh tính hiển thị dưới alias dễ thương. Bản gốc, IP hash và log chỉ dành cho backend/admin theo chính sách.</span>
           </div>
+
+          {!demoEnabled && (
+            <div className="form-section mt-5 rounded-2xl border border-stone-200 bg-white p-4">
+              <p className="mb-3 text-xs font-bold text-stone-700">Xác thực chống bot</p>
+              <TurnstileWidget
+                resetSignal={turnstileResetKey}
+                onToken={(token) => {
+                  setTurnstileToken(token);
+                  setErrorMessage("");
+                }}
+                onError={setErrorMessage}
+              />
+            </div>
+          )}
 
           {errorMessage && (
             <div role="alert" className="mt-5 flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">

@@ -19,7 +19,7 @@ const envSchema = z.object({
   OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().default(1200),
 
   // Anti-abuse
-  TURNSTILE_SITE_KEY: z.string().optional().default(""),
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().optional().default(""),
   TURNSTILE_SECRET_KEY: z.string().optional().default(""),
 
   // Application
@@ -42,7 +42,7 @@ function parseEnv(): Env {
     OPENAI_REASONING_EFFORT: process.env.OPENAI_REASONING_EFFORT,
     OPENAI_STORE: process.env.OPENAI_STORE,
     OPENAI_MAX_OUTPUT_TOKENS: process.env.OPENAI_MAX_OUTPUT_TOKENS,
-    TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY,
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
     ADMIN_USER_IDS: process.env.ADMIN_USER_IDS,
     RAW_DATA_RETENTION_DAYS: process.env.RAW_DATA_RETENTION_DAYS,
