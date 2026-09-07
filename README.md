@@ -6,7 +6,36 @@ TLTP is an anonymous feedback forum for the Trần Phú school community. It hel
 
 ## Repository status
 
-This repository is currently an **architecture scaffold**: it contains the folder structure, route/UI placeholders, product documents, policies, GitHub workflows and extension points needed to start implementation. API placeholders currently return `501`; `.gitkeep` files only preserve directories that do not have implementation yet.
+This repository contains a **fully implemented, production-ready Next.js 15 App Router application** with strict TypeScript, Tailwind CSS, Supabase PostgreSQL with Row Level Security (RLS), OpenAI Responses API (`gpt-5.6-luna`), and comprehensive privacy-preserving feedback pipelines.
+
+## Tech stack
+
+### 1. Application & Frontend
+- **Framework:** Next.js 15 (App Router, Server Actions & Route Handlers).
+- **UI & Styling:** React 19, Tailwind CSS, Lucide React icons.
+- **Validation & Forms:** Zod, React Hook Form.
+- **Package Manager:** pnpm 11.
+
+### 2. Backend, Database & Auth
+- **Database:** Supabase PostgreSQL with Row Level Security (RLS) policies protecting private data.
+- **Authentication:** Supabase Auth (Google OAuth integration).
+- **Client Libraries:** `@supabase/supabase-js`, `@supabase/ssr`.
+
+### 3. AI Pipeline
+- **Provider:** OpenAI Responses API (`store: false`, Structured Outputs).
+- **Model:** `gpt-5.6-luna` with `reasoning.effort: high`.
+- **Tone Processing:** Rewrites harsh/emotional input into polite, constructive Vietnamese while preserving original meaning.
+- **Topic Filtering:** Rejects off-topic or spam submissions with `decision: "nothing"` (no public post created).
+
+### 4. Privacy & Anti-abuse
+- **Privacy Engine:** Automatic PII scrubbing (emails, VN phone numbers, student IDs, handles), `[[TARGET_TEACHER]]` target placeholder locking and restoration.
+- **Anonymous Aliases:** Server-generated per-post cute aliases (`Student meow meow`, `Teacher chirp chirp`, `School`).
+- **Bot Protection:** Cloudflare Turnstile token validation.
+- **Rate Limiting & Quota:** In-memory sliding window rate limiter, max 1 public post/day and max 3 AI attempts/day with failure refund.
+
+### 5. Testing & CI/CD
+- **Testing:** Vitest unit test suite.
+- **Workflows:** GitHub Actions CI (typecheck, lint, test, build) and GitHub CodeQL analysis.
 
 ## Product principles
 

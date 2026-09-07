@@ -38,8 +38,8 @@ export const mockDatabase = {
       display_target: "Thầy Nguyễn Văn A",
       target_teacher_id: "11111111-1111-1111-1111-111111111111",
       status: "published",
-      created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
-      updated_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+      created_at: "2026-09-07T08:30:00.000Z",
+      updated_at: "2026-09-07T08:30:00.000Z",
     },
     {
       id: "post-102",
@@ -48,8 +48,8 @@ export const mockDatabase = {
       display_target: "Cô Trần Thị B",
       target_teacher_id: "22222222-2222-2222-2222-222222222222",
       status: "published",
-      created_at: new Date(Date.now() - 3600000 * 12).toISOString(),
-      updated_at: new Date(Date.now() - 3600000 * 12).toISOString(),
+      created_at: "2026-09-06T15:45:00.000Z",
+      updated_at: "2026-09-06T15:45:00.000Z",
     },
     {
       id: "post-103",
@@ -58,8 +58,8 @@ export const mockDatabase = {
       display_target: "Thầy Lê Văn C",
       target_teacher_id: "33333333-3333-3333-3333-333333333333",
       status: "published",
-      created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
-      updated_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+      created_at: "2026-09-06T09:15:00.000Z",
+      updated_at: "2026-09-06T09:15:00.000Z",
     },
   ] as PostPublic[],
 };

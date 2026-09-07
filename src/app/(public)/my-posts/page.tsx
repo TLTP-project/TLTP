@@ -108,7 +108,7 @@ export default function MyPostsPage() {
                 </p>
 
                 <div className="flex items-center justify-between pt-3 border-t border-stone-100 text-[11px] text-stone-400">
-                  <span>Ngày gửi: {formattedDate}</span>
+                  <span suppressHydrationWarning>Ngày gửi: {formattedDate}</span>
 
                   {!isDeleted && (
                     <button

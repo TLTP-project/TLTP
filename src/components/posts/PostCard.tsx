@@ -73,7 +73,7 @@ export function PostCard({ post, isAuthor = false, onDeleted }: PostCardProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-stone-400">{formattedDate}</span>
+          <span suppressHydrationWarning className="text-[11px] text-stone-400">{formattedDate}</span>
           <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50/80 px-2 py-0.5 rounded-md">
             <Sparkles className="h-3 w-3" /> AI đã tinh chỉnh
           </span>
