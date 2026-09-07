@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   title: "Trải Lòng Trần Phú (TLTP) — Diễn đàn phản hồi ẩn danh học đường",
   description:
     "Diễn đàn phản hồi ẩn danh cho cộng đồng trường học, lắng nghe và cải thiện môi trường học tập với sự đồng hành của AI.",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

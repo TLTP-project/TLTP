@@ -36,54 +36,30 @@ export default function HomePage() {
 
   useGSAP(
     () => {
-      // Snappy and crisp entrance
-      const tl = gsap.timeline({ defaults: { ease: "power2.out", clearProps: "all" } });
+      // Smooth, non-destructive glide-in: elements are never blank
+      gsap.from(".hero-section", {
+        y: 15,
+        opacity: 0.7,
+        duration: 0.4,
+        ease: "power2.out",
+        clearProps: "all",
+      });
 
-      tl.from(".hero-section", {
-        scale: 0.97,
-        autoAlpha: 0,
-        duration: 0.5,
-      })
-        .from(
-          [".hero-logo", ".hero-badge"],
-          {
-            scale: 0.8,
-            autoAlpha: 0,
-            duration: 0.4,
-            stagger: 0.08,
-            ease: "back.out(1.5)",
-          },
-          "-=0.3"
-        )
-        .from(
-          [".hero-title", ".hero-desc", ".hero-actions"],
-          {
-            y: 15,
-            autoAlpha: 0,
-            duration: 0.4,
-            stagger: 0.08,
-          },
-          "-=0.2"
-        )
-        .from(
-          ".filter-bar",
-          {
-            y: 12,
-            autoAlpha: 0,
-            duration: 0.35,
-          },
-          "-=0.2"
-        )
-        .from(
-          ".post-item",
-          {
-            y: 20,
-            autoAlpha: 0,
-            duration: 0.4,
-            stagger: 0.06,
-          },
-          "-=0.1"
-        );
+      gsap.from(".hero-logo", {
+        scale: 0.85,
+        duration: 0.45,
+        ease: "back.out(1.5)",
+        clearProps: "all",
+      });
+
+      gsap.from(".post-item", {
+        y: 20,
+        opacity: 0.6,
+        duration: 0.35,
+        stagger: 0.05,
+        ease: "power2.out",
+        clearProps: "all",
+      });
     },
     { scope: containerRef }
   );
@@ -92,7 +68,6 @@ export default function HomePage() {
     <div ref={containerRef} className="mx-auto max-w-4xl px-4 py-8 sm:px-6 space-y-8">
       {/* Modern Hero Section */}
       <section className="hero-section relative overflow-hidden rounded-3xl border border-amber-300/80 bg-gradient-to-b from-amber-100 via-orange-50 to-white p-6 sm:p-10 text-center shadow-md">
-
         <div className="relative z-10 flex flex-col items-center">
           {/* Logo Hero Mark */}
           <div className="hero-logo mb-4">
