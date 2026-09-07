@@ -1,42 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
-import { LogIn, Sparkles, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
+import { Logo } from "@/components/ui/Logo";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+
+gsap.registerPlugin(useGSAP);
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(
+    () => {
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+
+      tl.from(".login-logo", {
+        scale: 0.7,
+        autoAlpha: 0,
+        duration: 0.6,
+        ease: "back.out(1.7)",
+      })
+        .from(
+          ".login-heading",
+          {
+            y: 20,
+            autoAlpha: 0,
+            duration: 0.5,
+          },
+          "-=0.3"
+        )
+        .from(
+          ".login-card",
+          {
+            y: 30,
+            autoAlpha: 0,
+            duration: 0.6,
+          },
+          "-=0.3"
+        );
+    },
+    { scope: containerRef }
+  );
 
   function handleGoogleLogin() {
     setIsLoading(true);
-    // In production with live Supabase:
-    // supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: ... } })
-    // For development, navigate to onboarding / feed:
     setTimeout(() => {
       window.location.href = "/onboarding";
     }, 800);
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 py-16 text-center space-y-6">
-      <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-3xl bg-gradient-to-tr from-amber-600 to-orange-500 text-white font-bold text-xl shadow-md">
-        T
+    <div ref={containerRef} className="mx-auto max-w-md px-4 py-16 text-center space-y-6">
+      <div className="login-logo flex justify-center">
+        <Logo size="lg" showText={false} />
       </div>
 
-      <div className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight text-stone-900">
+      <div className="login-heading space-y-2">
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-stone-900">
           Đăng nhập vào TLTP
         </h1>
-        <p className="text-xs sm:text-sm text-stone-500">
+        <p className="text-xs sm:text-sm text-stone-500 max-w-sm mx-auto leading-relaxed">
           Đăng nhập bằng tài khoản Google để chia sẻ phản hồi và trải nghiệm học đường.
         </p>
       </div>
 
-      <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm space-y-4">
+      <div className="login-card rounded-3xl border border-stone-200/80 bg-white p-6 sm:p-8 shadow-sm space-y-5">
         <button
           onClick={handleGoogleLogin}
           disabled={isLoading}
-          className="w-full flex items-center justify-center gap-3 rounded-2xl border border-stone-300 bg-white py-3 px-4 text-xs sm:text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors shadow-sm disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-3 rounded-2xl border border-stone-300 bg-white py-3.5 px-4 text-xs sm:text-sm font-bold text-stone-700 hover:bg-stone-50 transition-all duration-200 shadow-xs active:scale-99 disabled:opacity-50"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24">
             <path
@@ -59,7 +94,7 @@ export default function LoginPage() {
           {isLoading ? "Đang chuyển hướng..." : "Tiếp tục với Google"}
         </button>
 
-        <div className="flex items-center gap-2 rounded-xl bg-stone-50 p-3 text-[11px] text-stone-500 text-left">
+        <div className="flex items-center gap-2.5 rounded-2xl bg-stone-50 p-3.5 text-[11px] text-stone-500 text-left border border-stone-100">
           <ShieldCheck className="h-4 w-4 text-amber-600 flex-shrink-0" />
           <span>
             Thông tin tài khoản chỉ dùng để kiểm soát giới hạn (1 bài/ngày) và không bao giờ hiển thị công khai.
@@ -69,7 +104,7 @@ export default function LoginPage() {
 
       <p className="text-xs text-stone-400">
         Bằng việc đăng nhập, bạn đồng ý với{" "}
-        <Link href="/policies" className="text-amber-700 hover:underline">
+        <Link href="/policies" className="text-amber-700 hover:underline font-medium">
           Chính sách bảo mật
         </Link>{" "}
         của TLTP.
