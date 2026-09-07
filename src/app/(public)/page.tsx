@@ -21,22 +21,36 @@ import type { PostPublic } from "@/types";
 gsap.registerPlugin(useGSAP);
 
 export default function HomePage() {
+  const demoEnabled = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   const containerRef = useRef<HTMLDivElement>(null);
-  const [posts, setPosts] = useState<PostPublic[]>(mockDatabase.posts);
+  const [posts, setPosts] = useState<PostPublic[]>(demoEnabled ? mockDatabase.posts : []);
+  const [teachers, setTeachers] = useState(demoEnabled ? mockDatabase.teachers : []);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>("all");
+  const [isLoading, setIsLoading] = useState(!demoEnabled);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
-    const demoEnabled = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
     if (demoEnabled) return;
 
-    fetch("/api/posts", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (data?.posts) setPosts(data.posts);
+    Promise.all([
+      fetch("/api/posts", { cache: "no-store" }),
+      fetch("/api/teachers", { cache: "no-store" }),
+    ])
+      .then(async ([postsResponse, teachersResponse]) => {
+        if (!postsResponse.ok || !teachersResponse.ok) throw new Error("feed_load_failed");
+
+        const [postsData, teachersData] = await Promise.all([
+          postsResponse.json(),
+          teachersResponse.json(),
+        ]);
+
+        setPosts(postsData.posts ?? []);
+        setTeachers(teachersData.teachers ?? []);
       })
-      .catch(() => undefined);
-  }, []);
+      .catch(() => setLoadError("Không thể tải bảng tin lúc này. Vui lòng thử tải lại trang."))
+      .finally(() => setIsLoading(false));
+  }, [demoEnabled]);
 
   const filteredPosts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -173,7 +187,7 @@ export default function HomePage() {
               className="h-12 w-full appearance-none rounded-2xl border border-stone-200 bg-white pl-11 pr-4 text-sm font-semibold text-stone-700 transition-colors focus:border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-500/10"
             >
               <option value="all">Tất cả đối tượng</option>
-              {mockDatabase.teachers.map((teacher) => (
+              {teachers.map((teacher) => (
                 <option key={teacher.id} value={teacher.id}>
                   {teacher.display_name} · {teacher.subject}
                 </option>
@@ -197,7 +211,24 @@ export default function HomePage() {
           </div>
         </div>
 
-        {filteredPosts.length === 0 ? (
+        {isLoading ? (
+          <div className="surface-card space-y-4 rounded-3xl p-6" aria-label="Đang tải bảng tin" aria-busy="true">
+            {["skeleton-one", "skeleton-two"].map((key) => (
+              <div key={key} className="animate-pulse space-y-4 rounded-2xl border border-stone-100 p-5">
+                <div className="flex gap-2"><div className="h-7 w-28 rounded-full bg-stone-200" /><div className="h-7 w-36 rounded-full bg-stone-100" /></div>
+                <div className="h-4 w-full rounded bg-stone-100" />
+                <div className="h-4 w-4/5 rounded bg-stone-100" />
+              </div>
+            ))}
+          </div>
+        ) : loadError ? (
+          <div role="alert" className="surface-card rounded-3xl border-rose-200 bg-rose-50 p-10 text-center">
+            <ShieldCheck className="mx-auto h-8 w-8 text-rose-500" />
+            <p className="mt-4 text-sm font-bold text-rose-800">Bảng tin đang tạm gián đoạn</p>
+            <p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-rose-700/80">{loadError}</p>
+            <button type="button" onClick={() => window.location.reload()} className="mt-5 rounded-xl bg-stone-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-stone-800">Tải lại</button>
+          </div>
+        ) : filteredPosts.length === 0 ? (
           <div className="surface-card rounded-3xl border-dashed p-12 text-center">
             <ShieldCheck className="mx-auto h-8 w-8 text-amber-500" />
             <p className="mt-4 text-sm font-bold text-stone-800">Chưa có phản hồi phù hợp</p>

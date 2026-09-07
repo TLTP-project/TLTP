@@ -32,9 +32,9 @@ export default function SubmitPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const resultCardRef = useRef<HTMLDivElement>(null);
   const [role, setRole] = useState<UserRole>("student");
-  const [targetTeacherId, setTargetTeacherId] = useState(mockDatabase.teachers[0]?.id || "");
-  const [teachers, setTeachers] = useState(mockDatabase.teachers);
-  const [isRoleLoading, setIsRoleLoading] = useState(false);
+  const [targetTeacherId, setTargetTeacherId] = useState(demoEnabled ? mockDatabase.teachers[0]?.id || "" : "");
+  const [teachers, setTeachers] = useState(demoEnabled ? mockDatabase.teachers : []);
+  const [isRoleLoading, setIsRoleLoading] = useState(!demoEnabled);
   const [text, setText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -44,30 +44,35 @@ export default function SubmitPage() {
 
   const charCount = text.length;
   const isLengthValid = charCount >= 10 && charCount <= 1500;
+  const canSubmit = isLengthValid && (role !== "student" || Boolean(targetTeacherId));
 
   useEffect(() => {
     if (demoEnabled) return;
 
     setIsRoleLoading(true);
-    fetch("/api/submissions", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (data?.role === "student" || data?.role === "teacher" || data?.role === "school") {
-          setRole(data.role);
-        }
-      })
-      .catch(() => undefined)
-      .finally(() => setIsRoleLoading(false));
+    Promise.all([
+      fetch("/api/submissions", { cache: "no-store" }),
+      fetch("/api/teachers", { cache: "no-store" }),
+    ])
+      .then(async ([quotaResponse, teachersResponse]) => {
+        if (!quotaResponse.ok || !teachersResponse.ok) throw new Error("form_config_load_failed");
 
-    fetch("/api/teachers", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (data?.teachers?.length) {
-          setTeachers(data.teachers);
-          setTargetTeacherId(data.teachers[0].id);
+        const [quotaData, teachersData] = await Promise.all([
+          quotaResponse.json(),
+          teachersResponse.json(),
+        ]);
+
+        if (quotaData?.role === "student" || quotaData?.role === "teacher" || quotaData?.role === "school") {
+          setRole(quotaData.role);
+        }
+
+        if (teachersData?.teachers?.length) {
+          setTeachers(teachersData.teachers);
+          setTargetTeacherId(teachersData.teachers[0].id);
         }
       })
-      .catch(() => undefined);
+      .catch(() => setErrorMessage("Không thể tải cấu hình phản hồi. Vui lòng tải lại trang."))
+      .finally(() => setIsRoleLoading(false));
   }, [demoEnabled]);
 
   useGSAP(
@@ -104,7 +109,7 @@ export default function SubmitPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!isLengthValid || isSubmitting) return;
+    if (!canSubmit || isSubmitting || isRoleLoading) return;
 
     setIsSubmitting(true);
     setErrorMessage("");
@@ -329,7 +334,7 @@ export default function SubmitPage() {
 
           <button
             type="submit"
-            disabled={!isLengthValid || isSubmitting || isRoleLoading}
+            disabled={!canSubmit || isSubmitting || isRoleLoading}
             className="mt-6 inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-stone-950 px-5 text-sm font-extrabold text-white shadow-lg shadow-stone-950/15 transition-transform hover:-translate-y-0.5 hover:bg-stone-800 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-45"
           >
             {isSubmitting ? <Sparkles className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
