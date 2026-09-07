@@ -8,22 +8,6 @@ create extension if not exists "pgcrypto";
 -- 1. Helper Functions (Security Definer with Search Path)
 -- ============================================================================
 
-create or replace function public.is_admin()
-returns boolean
-language sql
-security definer
-set search_path = public
-stable
-as $$
-  select exists (
-    select 1
-    from public.profiles
-    where user_id = auth.uid()
-      and role = 'school'
-      and verification_status = 'active'
-  );
-$$;
-
 -- Auto updated_at trigger
 create or replace function public.handle_updated_at()
 returns trigger
@@ -56,6 +40,23 @@ create trigger trigger_profiles_updated_at
   before update on public.profiles
   for each row
   execute function public.handle_updated_at();
+
+-- Admin checks depend on the profiles table, so define this after the table.
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where user_id = auth.uid()
+      and role = 'school'
+      and verification_status = 'active'
+  );
+$$;
 
 -- ============================================================================
 -- 3. Teachers Table (Canonical Target List)
