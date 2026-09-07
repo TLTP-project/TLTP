@@ -36,71 +36,53 @@ export default function HomePage() {
 
   useGSAP(
     () => {
-      // Hero Entrance Timeline
-      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+      // Snappy and crisp entrance
+      const tl = gsap.timeline({ defaults: { ease: "power2.out", clearProps: "all" } });
 
-      tl.from(".hero-logo", {
-        scale: 0.6,
-        rotation: -8,
+      tl.from(".hero-section", {
+        scale: 0.97,
         autoAlpha: 0,
-        duration: 0.8,
-        ease: "back.out(1.8)",
+        duration: 0.5,
       })
         .from(
-          ".hero-badge",
+          [".hero-logo", ".hero-badge"],
           {
-            y: 15,
+            scale: 0.8,
             autoAlpha: 0,
-            duration: 0.5,
-          },
-          "-=0.4"
-        )
-        .from(
-          ".hero-title",
-          {
-            y: 25,
-            autoAlpha: 0,
-            duration: 0.6,
+            duration: 0.4,
+            stagger: 0.08,
+            ease: "back.out(1.5)",
           },
           "-=0.3"
         )
         .from(
-          ".hero-desc",
-          {
-            y: 20,
-            autoAlpha: 0,
-            duration: 0.5,
-          },
-          "-=0.3"
-        )
-        .from(
-          ".hero-actions",
+          [".hero-title", ".hero-desc", ".hero-actions"],
           {
             y: 15,
             autoAlpha: 0,
-            duration: 0.5,
+            duration: 0.4,
+            stagger: 0.08,
           },
           "-=0.2"
         )
         .from(
           ".filter-bar",
           {
-            y: 20,
+            y: 12,
             autoAlpha: 0,
-            duration: 0.5,
+            duration: 0.35,
           },
           "-=0.2"
         )
         .from(
           ".post-item",
           {
-            y: 30,
+            y: 20,
             autoAlpha: 0,
-            duration: 0.6,
-            stagger: 0.08,
-            ease: "power2.out",
+            duration: 0.4,
+            stagger: 0.06,
           },
-          "-=0.2"
+          "-=0.1"
         );
     },
     { scope: containerRef }
@@ -109,9 +91,7 @@ export default function HomePage() {
   return (
     <div ref={containerRef} className="mx-auto max-w-4xl px-4 py-8 sm:px-6 space-y-8">
       {/* Modern Hero Section */}
-      <section className="relative overflow-hidden rounded-3xl border border-amber-200/80 bg-gradient-to-b from-amber-100/70 via-orange-50/40 to-white/60 p-6 sm:p-12 text-center shadow-sm backdrop-blur-xs">
-        {/* Glowing backdrop circle */}
-        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full bg-gradient-to-tr from-amber-400/20 to-orange-400/10 blur-3xl pointer-events-none" />
+      <section className="hero-section relative overflow-hidden rounded-3xl border border-amber-300/80 bg-gradient-to-b from-amber-100 via-orange-50 to-white p-6 sm:p-10 text-center shadow-md">
 
         <div className="relative z-10 flex flex-col items-center">
           {/* Logo Hero Mark */}
