@@ -64,6 +64,7 @@ export async function callLunaRewrite(
       model: env.OPENAI_MODEL,
       reasoning: { effort: env.OPENAI_REASONING_EFFORT },
       input: prompt,
+      max_output_tokens: env.OPENAI_MAX_OUTPUT_TOKENS,
       text: { format: lunaResponseSchema },
       store: env.OPENAI_STORE,
     });
