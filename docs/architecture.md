@@ -4,38 +4,40 @@
 
 ```text
 Public browser
-  ├─ reads filtered public posts through server-rendered pages/API
-  ├─ cannot read submissions_private, raw_text, IP addresses or admin audit data
-  └─ sends submissions/reports through server routes
+  ├─ reads filtered public posts through SvelteKit server-rendered pages/API
+  ├─ cannot read submissions_private, raw_text, IP hashes or admin audit data
+  └─ sends submissions/reports through server endpoints
 
-Next.js server
-  ├─ validates session, role, quota and Turnstile
-  ├─ locks the teacher target with [[TARGET_TEACHER]]
+SvelteKit server
+  ├─ resolves Better Auth session and profile role
+  ├─ validates payload, quota, role and Turnstile
+  ├─ redacts PII and locks any canonical teacher target with [[TARGET_TEACHER]]
   ├─ calls GPT-5.6 Luna once with Structured Output
   ├─ publishes public_text or drops the item when decision = nothing
-  └─ keeps the service-role key server-side only
+  └─ keeps Neon and OpenAI credentials server-side
 
-Supabase Postgres
-  ├─ public tables/views: processed data
-  └─ private tables: raw content, account reference, IP address, audit data
+Neon PostgreSQL
+  ├─ Better Auth: user, session, account and verification
+  ├─ public data: filtered posts and active teacher directory
+  └─ private data: raw submissions, account references, rate limits and audit rows
 ```
 
 ## Module rules
 
-- `src/app`: route composition, page metadata and loading/error states; do not place long business logic here.
-- `src/components`: presentational UI components; they do not call the database directly.
-- `src/features`: domain use cases (`ai`, `submissions`, `reports`, `moderation`).
-- `src/lib`: integration adapters (OpenAI, Supabase, Turnstile), config and privacy/security helpers.
-- `src/server`: server actions and queries shared by routes and pages.
-- `supabase/migrations`: schema, RLS policies, indexes and triggers; every database change must be a reviewed migration.
+- `src/routes`: SvelteKit page composition, server loads and HTTP endpoints; keep long business logic in features/repositories.
+- `src/lib/components`: presentational Svelte components; they do not call Neon directly.
+- `src/features`: domain use cases (`ai`, `auth`, `submissions`, `reports`, `moderation`).
+- `src/lib/server`: Better Auth, Neon/Drizzle schema and server-only repositories.
+- `src/lib`: OpenAI, privacy, security and configuration adapters.
+- `drizzle/`: generated, reviewed Neon migrations and seed SQL. Every schema change needs a migration review.
 
 ## Submission flow
 
-1. The user signs in with Google and chooses a role and target.
-2. The server checks quota, authorization, length and anti-bot controls.
-3. One request sends the role, target and content to Luna.
+1. The user signs in with GitHub/Google and chooses a role.
+2. The server checks session, quota, authorization, length and anti-bot controls.
+3. One request sends the role, anonymous target contract and content to Luna.
 4. `decision = publish`: write `public_text` to `posts_public`, generate an alias and publish immediately.
-5. `decision = nothing`: create no public post; record an internal status if needed.
-6. The sender can only keep or soft-delete the post after it appears.
+5. `decision = nothing`: create no public post; record an internal moderation status.
+6. The sender can soft-delete the public post from “Bài của tôi”.
 
-Never place unprocessed raw text on a public page. Never call the model from the browser client.
+Never place unprocessed raw text on a public page. Never call the model from the browser client. Lenis is the only motion runtime; there is no GSAP or 3D scene.

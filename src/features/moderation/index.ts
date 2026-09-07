@@ -1,5 +1,9 @@
-import { mockDatabase } from "@/lib/db";
-import { mockReports } from "@/features/reports";
+import { randomUUID } from "node:crypto";
+import { env } from "$lib/config/env";
+import { mockDatabase } from "$lib/db";
+import { sql } from "$lib/server/db";
+import { updateReportStatus } from "@/features/reports";
+import { getPostById } from "$lib/server/repository";
 import type { PostStatus, ReportStatus } from "@/types";
 
 export interface ModerationActionInput {
@@ -17,49 +21,36 @@ export interface ResolveReportInput {
   moderatorNote?: string;
 }
 
-/**
- * Moderation actions on a public post (hide, restore, delete)
- */
-export async function moderatePost(
-  input: ModerationActionInput
-): Promise<{ success: boolean; error?: string }> {
-  const post = mockDatabase.posts.find((p) => p.id === input.postId);
-  if (!post) {
-    return { success: false, error: "Bài viết không tìm thấy." };
-  }
+export async function moderatePost(input: ModerationActionInput): Promise<{ success: boolean; error?: string }> {
+  const existing = await getPostById(input.postId);
+  if (!existing) return { success: false, error: "Bài viết không tìm thấy." };
+  const newStatus: PostStatus = input.action === "hide" ? "hidden" : input.action === "delete" ? "deleted" : "published";
+  const deletedAt = newStatus === "deleted" ? new Date().toISOString() : null;
 
-  let newStatus: PostStatus;
-  if (input.action === "hide") {
-    newStatus = "hidden";
-  } else if (input.action === "delete") {
-    newStatus = "deleted";
-    post.deleted_at = new Date().toISOString();
+  if (env.DEMO_MODE || !env.DATABASE_URL) {
+    const post = mockDatabase.posts.find((item) => item.id === input.postId);
+    if (!post) return { success: false, error: "Bài viết không tìm thấy." };
+    post.status = newStatus;
+    post.deleted_at = deletedAt;
+    post.updated_at = new Date().toISOString();
   } else {
-    newStatus = "published";
-    post.deleted_at = null;
+    await sql`UPDATE posts_public SET status = ${newStatus}, deleted_at = ${deletedAt}, updated_at = NOW() WHERE id = ${input.postId}`;
+    await sql`
+      INSERT INTO moderation_audit (id, post_id, prompt_version, model, decision, flags, token_usage, created_at)
+      VALUES (${randomUUID()}, ${input.postId}, 'moderator', 'human', ${input.action}, ${JSON.stringify(input.note ? { note: input.note } : {})}::jsonb, ${JSON.stringify({})}::jsonb, NOW())
+    `;
   }
-
-  post.status = newStatus;
-  post.updated_at = new Date().toISOString();
-
   return { success: true };
 }
 
-/**
- * Updates a report's status and moderator notes
- */
-export async function resolveReport(
-  input: ResolveReportInput
-): Promise<{ success: boolean; error?: string }> {
-  const report = mockReports.find((r) => r.id === input.reportId);
-  if (!report) {
-    return { success: false, error: "Báo cáo không tồn tại." };
+export async function resolveReport(input: ResolveReportInput): Promise<{ success: boolean; error?: string }> {
+  const updated = await updateReportStatus(input.reportId, input.status, input.moderatorNote, input.actionTaken);
+  if (!updated) return { success: false, error: "Báo cáo không tồn tại." };
+  if (!env.DEMO_MODE && env.DATABASE_URL) {
+    await sql`
+      INSERT INTO admin_access_audit (id, user_id, action, source, created_at)
+      VALUES (${randomUUID()}, ${input.adminId}, ${`report:${input.status}`}, 'moderation', NOW())
+    `;
   }
-
-  report.status = input.status;
-  report.action_taken = input.actionTaken;
-  report.moderator_note = input.moderatorNote;
-  report.updated_at = new Date().toISOString();
-
   return { success: true };
 }

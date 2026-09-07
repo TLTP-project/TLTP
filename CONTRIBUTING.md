@@ -10,4 +10,4 @@ Thank you for contributing to Trải Lòng Trần Phú. Read `CONTENT_POLICY.md`
 4. Run lint, typecheck and relevant tests before opening a PR.
 5. Describe the change, privacy/security risks and test coverage clearly.
 
-Changes to `src/features/ai`, `src/lib/privacy`, `supabase/` or policy files require maintainer review. Never include raw feedback, real names, IP addresses or admin dashboard screenshots in a PR.
+Changes to `src/features/ai`, `src/lib/privacy`, `src/lib/server`, `drizzle/` or policy files require maintainer review. Never include raw feedback, real names, IP addresses or admin dashboard screenshots in a PR.

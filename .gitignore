@@ -32,11 +32,6 @@ logs/
 *.pid
 *.pid.lock
 
-# Legacy database tooling state
-supabase/.branches/
-supabase/.temp/
-supabase/.cache/
-
 # OS / editor files
 .DS_Store
 Thumbs.db
@@ -53,3 +48,8 @@ desktop.ini
 .vercel/
 .eslintcache
 *.tsbuildinfo
+
+# Legacy local Supabase CLI state (the app now uses Neon)
+supabase/.branches/
+supabase/.temp/
+supabase/.cache/

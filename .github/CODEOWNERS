@@ -2,7 +2,8 @@
 * @TLTP-project/maintainers
 /src/features/ai/ @TLTP-project/maintainers
 /src/lib/privacy/ @TLTP-project/maintainers
-/supabase/ @TLTP-project/maintainers
+/src/lib/server/ @TLTP-project/maintainers
+/drizzle/ @TLTP-project/maintainers
 /.github/ @TLTP-project/maintainers
 /PRIVACY.md @TLTP-project/maintainers
 /SECURITY.md @TLTP-project/maintainers
