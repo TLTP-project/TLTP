@@ -1,39 +1,40 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import {
-  Send,
-  Sparkles,
-  CheckCircle2,
-  Trash2,
   AlertTriangle,
   ArrowRight,
-  ShieldCheck,
+  CheckCircle2,
   RotateCcw,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { mockDatabase } from "@/lib/db";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import type { UserRole, PostPublic } from "@/types";
+import type { PostPublic, UserRole } from "@/types";
 
 gsap.registerPlugin(useGSAP);
+
+const roles: Array<{ value: UserRole; label: string; description: string }> = [
+  { value: "student", label: "Học sinh", description: "Meo meo, chia sẻ điều bạn đang trải qua." },
+  { value: "teacher", label: "Giáo viên", description: "Gâu gâu, góp ý để lớp học tốt hơn." },
+  { value: "school", label: "Nhà trường", description: "Đại diện trường, lắng nghe cộng đồng." },
+];
 
 export default function SubmitPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const resultCardRef = useRef<HTMLDivElement>(null);
-
   const [role, setRole] = useState<UserRole>("student");
   const [targetType, setTargetType] = useState<"teacher" | "school">("teacher");
-  const [targetTeacherId, setTargetTeacherId] = useState<string>(
-    mockDatabase.teachers[0]?.id || ""
-  );
+  const [targetTeacherId, setTargetTeacherId] = useState(mockDatabase.teachers[0]?.id || "");
   const [text, setText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
-  // Result state after submission (Published immediately with Keep / Delete)
   const [publishedPost, setPublishedPost] = useState<PostPublic | null>(null);
   const [hasKept, setHasKept] = useState(false);
   const [hasDeleted, setHasDeleted] = useState(false);
@@ -43,12 +44,14 @@ export default function SubmitPage() {
 
   useGSAP(
     () => {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
       if (!publishedPost) {
         gsap.from(".form-section", {
-          y: 20,
-          autoAlpha: 0,
-          duration: 0.5,
-          stagger: 0.08,
+          y: 12,
+          opacity: 0,
+          duration: 0.38,
+          stagger: 0.06,
           ease: "power2.out",
         });
       }
@@ -58,60 +61,55 @@ export default function SubmitPage() {
 
   useGSAP(
     () => {
-      if (publishedPost && resultCardRef.current) {
-        gsap.from(resultCardRef.current, {
-          scale: 0.94,
-          autoAlpha: 0,
-          duration: 0.6,
-          ease: "back.out(1.5)",
-        });
-      }
+      if (!publishedPost || !resultCardRef.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+      gsap.from(resultCardRef.current, {
+        y: 12,
+        scale: 0.98,
+        opacity: 0,
+        duration: 0.45,
+        ease: "power2.out",
+      });
     },
     { dependencies: [publishedPost] }
   );
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!isLengthValid) return;
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!isLengthValid || isSubmitting) return;
 
     setIsSubmitting(true);
     setErrorMessage("");
 
     try {
-      const selectedTeacher = mockDatabase.teachers.find(
-        (t) => t.id === targetTeacherId
-      );
-      const targetLabel =
-        targetType === "teacher" && selectedTeacher
-          ? selectedTeacher.display_name
-          : "Nhà trường & Cộng đồng";
+      const selectedTeacher = mockDatabase.teachers.find((teacher) => teacher.id === targetTeacherId);
+      const targetLabel = targetType === "teacher" && selectedTeacher
+        ? selectedTeacher.display_name
+        : "Nhà trường & Ban Giám Hiệu";
 
-      const res = await fetch("/api/submissions", {
+      const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           role,
           target: targetLabel,
           target_teacher_id: targetType === "teacher" ? targetTeacherId : undefined,
-          text,
-          // The local demo bypass is intentionally never sent from production builds.
+          text: text.trim(),
           turnstile_token:
-            process.env.NODE_ENV !== "production" ||
-            process.env.NEXT_PUBLIC_DEMO_MODE === "true"
+            process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true"
               ? "dev-dummy-token"
               : undefined,
         }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        setErrorMessage(data.error || "Không thể xử lý phản hồi");
+      const data = await response.json();
+      if (!response.ok) {
+        setErrorMessage(data.error || "Không thể xử lý phản hồi.");
       } else {
         setPublishedPost(data.post);
       }
     } catch {
-      setErrorMessage("Lỗi kết nối máy chủ. Vui lòng kiểm tra mạng.");
+      setErrorMessage("Lỗi kết nối máy chủ. Vui lòng thử lại.");
     } finally {
       setIsSubmitting(false);
     }
@@ -119,270 +117,210 @@ export default function SubmitPage() {
 
   async function handleDeletePublishedPost() {
     if (!publishedPost) return;
+    setErrorMessage("");
+
     try {
-      const res = await fetch(`/api/posts/${publishedPost.id}`, { method: "DELETE" });
-      if (res.ok) {
+      const response = await fetch(`/api/posts/${publishedPost.id}`, { method: "DELETE" });
+      if (response.ok) {
         setHasDeleted(true);
       } else {
-        alert("Lỗi khi xóa bài viết.");
+        const data = await response.json().catch(() => null);
+        setErrorMessage(data?.error || "Không thể gỡ bài viết.");
       }
     } catch {
-      alert("Lỗi kết nối máy chủ");
+      setErrorMessage("Lỗi kết nối máy chủ. Vui lòng thử lại.");
     }
   }
 
+  function resetForm() {
+    setPublishedPost(null);
+    setHasDeleted(false);
+    setHasKept(false);
+    setText("");
+    setErrorMessage("");
+  }
+
   return (
-    <div ref={containerRef} className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
-      <div className="mb-8 space-y-3 text-center flex flex-col items-center">
+    <div ref={containerRef} className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:py-12">
+      <div className="mb-8 flex flex-col items-center text-center">
         <Logo size="md" showText={false} />
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-stone-900">
-          Gửi phản hồi ẩn danh
-        </h1>
-        <p className="text-xs sm:text-sm text-stone-500 max-w-md mx-auto leading-relaxed">
-          Mọi thông điệp đều được AI tự động làm dịu, loại bỏ yếu tố công kích cá nhân và xuất bản ngay lập tức.
+        <p className="eyebrow mt-5 text-amber-700">Một góc nhỏ để nói thật</p>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-stone-950 sm:text-4xl">Gửi phản hồi ẩn danh</h1>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-stone-500 sm:text-base">
+          AI sẽ đọc, làm dịu câu chữ và đăng thẳng phiên bản chuẩn mực lên bảng tin. Không có bước xem trước.
         </p>
       </div>
 
-      {/* CASE 1: Successfully published -> Show AI text & Keep / Delete */}
       {publishedPost ? (
-        <div
-          ref={resultCardRef}
-          className="rounded-3xl border border-emerald-200 bg-white p-6 sm:p-8 shadow-md space-y-6"
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 shadow-xs">
+        <div ref={resultCardRef} className="surface-card rounded-[2rem] p-5 sm:p-8">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
               <CheckCircle2 className="h-6 w-6" />
             </div>
             <div>
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 border border-emerald-200">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Đã xuất bản (Status: Published)
-              </div>
-              <p className="text-xs text-stone-400 mt-0.5 font-mono">
-                Mã bài viết: {publishedPost.id}
+              <p className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                Đã đăng lên bảng tin
               </p>
+              <p className="mt-1 text-xs text-stone-400">Mã bài viết: {publishedPost.id}</p>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold text-stone-600 bg-stone-50 p-2.5 rounded-xl border border-stone-100">
+          <div className="mt-6 space-y-4">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-stone-100 bg-stone-50 px-4 py-3 text-xs font-semibold text-stone-600">
               <span>Người gửi: <strong className="text-amber-700">{publishedPost.display_sender}</strong></span>
-              <span>Gửi đến: <strong className="text-stone-800">{publishedPost.display_target}</strong></span>
+              <span className="hidden text-stone-300 sm:inline">→</span>
+              <span>Gửi tới: <strong className="text-stone-900">{publishedPost.display_target}</strong></span>
             </div>
 
-            <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/60 to-orange-50/30 p-5 shadow-xs">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 mb-2.5">
+            <div className="rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50/60 p-5">
+              <div className="flex items-center gap-2 text-xs font-extrabold text-amber-900">
                 <Sparkles className="h-4 w-4 text-amber-600" />
-                Văn bản đã được AI làm dịu & xuất bản công khai:
+                Phiên bản AI đã làm dịu
               </div>
-              <p className="text-sm leading-relaxed text-stone-800 whitespace-pre-wrap font-normal">
-                {publishedPost.processed_text}
-              </p>
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-stone-800">{publishedPost.processed_text}</p>
             </div>
           </div>
 
           {hasDeleted ? (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-center text-xs font-medium text-rose-700">
-              Bạn đã chọn <strong>Xóa (Delete)</strong>. Bài viết đã được gỡ khỏi trang công khai.
-              <div className="mt-3">
-                <button
-                  onClick={() => {
-                    setPublishedPost(null);
-                    setHasDeleted(false);
-                    setHasKept(false);
-                    setText("");
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-semibold text-white hover:bg-stone-800 transition-colors"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" /> Gửi phản hồi khác
-                </button>
-              </div>
+            <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-center text-sm text-rose-700">
+              Bài viết đã được gỡ khỏi bảng tin công khai.
+              <button type="button" onClick={resetForm} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800">
+                <RotateCcw className="h-3.5 w-3.5" /> Gửi phản hồi khác
+              </button>
             </div>
           ) : hasKept ? (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center text-xs font-medium text-emerald-800">
-              Bạn đã chọn <strong>Giữ bài (Keep)</strong>. Bài viết của bạn đang hiển thị trên bảng tin công khai.
-              <div className="mt-3 flex justify-center gap-2">
-                <Link
-                  href="/"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
-                >
-                  Xem trên Bảng tin <ArrowRight className="h-3.5 w-3.5" />
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm text-emerald-800">
+              Bài viết đang hiển thị trên bảng tin công khai.
+              <div className="mt-3 flex flex-wrap justify-center gap-2">
+                <Link href="/" className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-800">
+                  Xem bảng tin <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
-                <Link
-                  href="/my-posts"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
-                >
-                  Quản lý bài của tôi
+                <Link href="/my-posts" className="inline-flex items-center rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50">
+                  Bài của tôi
                 </Link>
               </div>
             </div>
           ) : (
-            <div className="space-y-3 pt-2">
-              <p className="text-xs text-stone-500 text-center">
-                Theo quy định, bài viết được đăng ngay. Bạn có thể chọn <strong>Giữ bài (Keep)</strong> để chia sẻ tiếp hoặc <strong>Xóa bài (Delete)</strong> nếu đổi ý:
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setHasKept(true)}
-                  className="flex-1 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 text-xs sm:text-sm font-bold text-white hover:from-emerald-700 hover:to-teal-700 transition-all shadow-sm"
-                >
-                  Giữ bài (Keep)
+            <div className="mt-6 space-y-3">
+              <p className="text-center text-xs leading-5 text-stone-500">Bài đã đăng ngay. Bạn có thể giữ lại hoặc gỡ bài nếu đổi ý.</p>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button type="button" onClick={() => setHasKept(true)} className="flex-1 rounded-2xl bg-emerald-700 px-4 py-3.5 text-sm font-extrabold text-white transition-colors hover:bg-emerald-800">
+                  Giữ bài
                 </button>
-                <button
-                  onClick={handleDeletePublishedPost}
-                  className="flex-1 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-xs sm:text-sm font-bold text-rose-600 hover:bg-rose-50 transition-all"
-                >
-                  <Trash2 className="inline h-4 w-4 mr-1" />
-                  Xóa bài (Delete)
+                <button type="button" onClick={handleDeletePublishedPost} className="flex-1 rounded-2xl border border-rose-200 bg-white px-4 py-3.5 text-sm font-extrabold text-rose-600 transition-colors hover:bg-rose-50">
+                  <Trash2 className="mr-1.5 inline h-4 w-4" /> Gỡ bài
                 </button>
               </div>
             </div>
           )}
+
+          {errorMessage && <p className="mt-4 text-center text-sm font-semibold text-rose-600">{errorMessage}</p>}
         </div>
       ) : (
-        /* CASE 2: Form Input */
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-3xl border border-stone-200/80 bg-white p-6 sm:p-8 shadow-sm space-y-6"
-        >
-          {/* Step 1: Role Selection */}
-          <div className="form-section space-y-2">
-            <label className="text-xs font-bold text-stone-800 uppercase tracking-wider">
-              1. Vai trò của bạn:
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { value: "student", label: "Học sinh" },
-                { value: "teacher", label: "Giáo viên" },
-                { value: "school", label: "Nhà trường" },
-              ].map((item) => (
+        <form onSubmit={handleSubmit} className="surface-card rounded-[2rem] p-5 sm:p-8">
+          <fieldset className="form-section space-y-3">
+            <legend className="text-sm font-extrabold text-stone-900">Bạn là ai trong cộng đồng?</legend>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {roles.map((item) => (
                 <button
-                  type="button"
                   key={item.value}
-                  onClick={() => setRole(item.value as UserRole)}
-                  className={`rounded-2xl border p-3 text-xs sm:text-sm font-semibold transition-all ${
+                  type="button"
+                  aria-pressed={role === item.value}
+                  onClick={() => setRole(item.value)}
+                  className={`rounded-2xl border p-4 text-left transition-all ${
                     role === item.value
-                      ? "border-amber-600 bg-amber-50 text-amber-950 shadow-xs"
-                      : "border-stone-200 text-stone-600 hover:bg-stone-50"
+                      ? "border-amber-500 bg-amber-50 shadow-sm"
+                      : "border-stone-200 bg-white hover:border-amber-300 hover:bg-amber-50/40"
                   }`}
                 >
-                  {item.label}
+                  <span className="block text-sm font-extrabold text-stone-900">{item.label}</span>
+                  <span className="mt-1 block text-xs leading-5 text-stone-500">{item.description}</span>
                 </button>
               ))}
             </div>
-          </div>
+          </fieldset>
 
-          {/* Step 2: Target Selection */}
-          <div className="form-section space-y-3">
-            <label className="text-xs font-bold text-stone-800 uppercase tracking-wider">
-              2. Đối tượng nhận phản hồi:
-            </label>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setTargetType("teacher")}
-                className={`rounded-2xl border p-3 text-xs sm:text-sm font-semibold transition-all ${
-                  targetType === "teacher"
-                    ? "border-amber-600 bg-amber-50 text-amber-950 shadow-xs"
-                    : "border-stone-200 text-stone-600 hover:bg-stone-50"
-                }`}
-              >
-                Gửi tới Thầy / Cô
-              </button>
-              <button
-                type="button"
-                onClick={() => setTargetType("school")}
-                className={`rounded-2xl border p-3 text-xs sm:text-sm font-semibold transition-all ${
-                  targetType === "school"
-                    ? "border-amber-600 bg-amber-50 text-amber-950 shadow-xs"
-                    : "border-stone-200 text-stone-600 hover:bg-stone-50"
-                }`}
-              >
-                Gửi tới Nhà trường
-              </button>
+          <fieldset className="form-section mt-8 space-y-3">
+            <legend className="text-sm font-extrabold text-stone-900">Bạn muốn gửi đến đâu?</legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                ["teacher", "Một thầy / cô"],
+                ["school", "Nhà trường"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={targetType === value}
+                  onClick={() => setTargetType(value as "teacher" | "school")}
+                  className={`rounded-2xl border px-4 py-3 text-left text-sm font-bold transition-all ${
+                    targetType === value
+                      ? "border-amber-500 bg-amber-50 text-amber-950"
+                      : "border-stone-200 bg-white text-stone-700 hover:border-amber-300"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
             {targetType === "teacher" && (
-              <div className="pt-1">
+              <div>
+                <label htmlFor="target-teacher" className="sr-only">Chọn thầy cô</label>
                 <select
+                  id="target-teacher"
                   value={targetTeacherId}
-                  onChange={(e) => setTargetTeacherId(e.target.value)}
-                  className="w-full rounded-2xl border border-stone-200 bg-stone-50/70 p-3.5 text-xs sm:text-sm text-stone-800 font-medium focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 cursor-pointer"
+                  onChange={(event) => setTargetTeacherId(event.target.value)}
+                  className="h-12 w-full rounded-2xl border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-800 focus:border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-500/10"
                 >
-                  {mockDatabase.teachers.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.display_name} — Môn {t.subject}
-                    </option>
+                  {mockDatabase.teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>{teacher.display_name} · {teacher.subject}</option>
                   ))}
                 </select>
-                <p className="mt-1.5 text-[11px] text-stone-400">
-                  * Tên thầy/cô được mã hóa nội bộ thành [[TARGET_TEACHER]] và khôi phục sau khi AI làm dịu văn bản.
-                </p>
+                <p className="mt-2 text-xs leading-5 text-stone-400">Tên thầy/cô là đích phản hồi nên sẽ hiển thị; danh tính người gửi vẫn được ẩn.</p>
               </div>
             )}
-          </div>
+          </fieldset>
 
-          {/* Step 3: Feedback Content */}
-          <div className="form-section space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-stone-800 uppercase tracking-wider">
-                3. Nội dung phản hồi:
-              </label>
-              <span
-                className={`text-xs font-semibold ${
-                  charCount > 1500
-                    ? "text-rose-600 font-bold"
-                    : charCount < 10
-                    ? "text-stone-400"
-                    : "text-amber-700"
-                }`}
-              >
-                {charCount} / 1,500 ký tự (tối thiểu 10)
+          <div className="form-section mt-8 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="feedback-text" className="text-sm font-extrabold text-stone-900">Nội dung phản hồi</label>
+              <span aria-live="polite" className={`text-xs font-bold ${charCount > 1500 ? "text-rose-600" : charCount >= 10 ? "text-emerald-600" : "text-stone-400"}`}>
+                {charCount.toLocaleString("vi-VN")} / 1.500
               </span>
             </div>
-
             <textarea
+              id="feedback-text"
               value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Chia sẻ trải nghiệm, thắc mắc hoặc đề xuất cải thiện của bạn... Cứ viết thoải mái, AI sẽ tự động điều chỉnh lời văn lịch sự và mang tính xây dựng trước khi xuất bản."
-              rows={6}
-              className="w-full rounded-2xl border border-stone-200 p-4 text-xs sm:text-sm text-stone-800 placeholder-stone-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 leading-relaxed transition-all"
+              onChange={(event) => setText(event.target.value)}
+              placeholder="Kể lại trải nghiệm, điều bạn băn khoăn hoặc đề xuất cải thiện..."
+              maxLength={1500}
+              rows={8}
+              required
+              className="w-full resize-y rounded-2xl border border-stone-200 bg-white p-4 text-sm leading-7 text-stone-800 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-500/10"
             />
+            <p className="text-xs leading-5 text-stone-400">Tối thiểu 10 ký tự. AI chỉ chỉnh giọng văn, không đổi ý chính.</p>
           </div>
 
-          {/* Bot Protection & Security Banner */}
-          <div className="form-section flex items-center gap-2 rounded-2xl bg-stone-50 p-3.5 text-xs text-stone-500 border border-stone-100">
-            <ShieldCheck className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-            <span>
-              Bảo vệ bởi Cloudflare Turnstile & Quota: Tối đa 1 bài đăng/ngày và 3 lượt xử lý AI/ngày.
-            </span>
+          <div className="form-section mt-6 flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 text-xs leading-5 text-emerald-900">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+            <span>Danh tính hiển thị dưới alias dễ thương. Bản gốc, IP hash và log chỉ dành cho backend/admin theo chính sách.</span>
           </div>
 
           {errorMessage && (
-            <div className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-700">
-              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <div role="alert" className="mt-5 flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{errorMessage}</span>
             </div>
           )}
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={!isLengthValid || isSubmitting}
-            className="w-full rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 py-4 px-4 text-xs sm:text-sm font-bold text-white shadow-md hover:from-amber-700 hover:to-orange-700 hover:shadow-lg disabled:opacity-50 transition-all flex items-center justify-center gap-2 transform active:scale-99"
+            className="mt-6 inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-stone-950 px-5 text-sm font-extrabold text-white shadow-lg shadow-stone-950/15 transition-transform hover:-translate-y-0.5 hover:bg-stone-800 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-45"
           >
-            {isSubmitting ? (
-              <>
-                <Sparkles className="h-4 w-4 animate-spin" />
-                AI đang làm dịu văn bản & xuất bản...
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4" />
-                Gửi phản hồi ngay
-              </>
-            )}
+            {isSubmitting ? <Sparkles className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {isSubmitting ? "AI đang làm dịu & đăng bài..." : "Gửi và đăng ngay"}
           </button>
         </form>
       )}

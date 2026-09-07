@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MessageSquarePlus, Trash2, CheckCircle2 } from "lucide-react";
+import { CheckCircle2, MessageSquarePlus, Trash2 } from "lucide-react";
 import { mockDatabase } from "@/lib/db";
 import { getCurrentDevUser } from "@/features/auth";
 import type { PostPublic } from "@/types";
@@ -10,119 +10,91 @@ import type { PostPublic } from "@/types";
 export default function MyPostsPage() {
   const user = getCurrentDevUser();
   const [posts, setPosts] = useState<PostPublic[]>(
-    user
-      ? mockDatabase.posts.filter((p) => p.author_id === user.id)
-      : []
+    user ? mockDatabase.posts.filter((post) => post.author_id === user.id) : []
   );
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function handleDelete(postId: string) {
-    if (!confirm("Bạn có chắc chắn muốn gỡ bài viết này?")) return;
+    if (!window.confirm("Bạn có chắc chắn muốn gỡ bài viết này khỏi bảng tin?")) return;
 
+    setErrorMessage("");
     try {
-      const res = await fetch(`/api/posts/${postId}`, { method: "DELETE" });
-      if (res.ok) {
-        setPosts((prev) =>
-          prev.map((p) => (p.id === postId ? { ...p, status: "deleted" } : p))
-        );
-      } else {
-        alert("Không thể gỡ bài viết");
+      const response = await fetch(`/api/posts/${postId}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        setErrorMessage(data?.error || "Không thể gỡ bài viết.");
+        return;
       }
+
+      setPosts((current) => current.map((post) => (
+        post.id === postId ? { ...post, status: "deleted" } : post
+      )));
     } catch {
-      alert("Lỗi kết nối máy chủ");
+      setErrorMessage("Lỗi kết nối máy chủ. Vui lòng thử lại.");
     }
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-stone-200 pb-5">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:py-12">
+      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-stone-900">
-            Bài viết của tôi
-          </h1>
-          <p className="text-xs text-stone-500 mt-1">
-            Theo dõi trạng thái và thực hiện quyền <strong>Giữ bài (Keep)</strong> hoặc <strong>Xóa bài (Delete)</strong>.
+          <p className="eyebrow text-amber-700">Không gian của bạn</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-stone-950">Bài viết của tôi</h1>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
+            Theo dõi những điều bạn đã chia sẻ. Danh tính vẫn được ẩn trên bảng tin công khai.
           </p>
         </div>
-
-        <Link
-          href="/submit"
-          className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors self-start"
-        >
+        <Link href="/submit" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-stone-950 px-4 py-3 text-sm font-extrabold text-white shadow-lg shadow-stone-950/10 transition-transform hover:-translate-y-0.5 hover:bg-stone-800">
           <MessageSquarePlus className="h-4 w-4" />
           Gửi bài mới
         </Link>
       </div>
 
+      {errorMessage && <p role="alert" className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">{errorMessage}</p>}
+
       {posts.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-stone-200 bg-white p-12 text-center space-y-3">
-          <p className="text-sm text-stone-500">Bạn chưa gửi phản hồi nào.</p>
-          <Link
-            href="/submit"
-            className="inline-block rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700"
-          >
-            Chia sẻ trải nghiệm đầu tiên
-          </Link>
+        <div className="surface-card mt-8 rounded-3xl border-dashed p-12 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">✦</div>
+          <p className="mt-4 text-sm font-bold text-stone-800">Bạn chưa gửi phản hồi nào.</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-stone-500">Một góp ý nhỏ cũng có thể làm lớp học tốt hơn.</p>
+          <Link href="/submit" className="mt-5 inline-flex rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-700">Chia sẻ trải nghiệm</Link>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="mt-8 space-y-4">
           {posts.map((post) => {
             const isDeleted = post.status === "deleted";
-            const formattedDate = new Date(post.created_at).toLocaleDateString("vi-VN", {
+            const formattedDate = new Intl.DateTimeFormat("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
               hour: "2-digit",
               minute: "2-digit",
-              day: "numeric",
-              month: "numeric",
-            });
+              timeZone: "Asia/Ho_Chi_Minh",
+            }).format(new Date(post.created_at));
 
             return (
-              <div
-                key={post.id}
-                className={`rounded-2xl border p-5 transition-all ${
-                  isDeleted
-                    ? "border-stone-200 bg-stone-50 opacity-60"
-                    : "border-stone-200 bg-white shadow-sm"
-                }`}
-              >
-                <div className="flex items-center justify-between pb-3 border-b border-stone-100 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-stone-800">
-                      Gửi đến: {post.display_target}
-                    </span>
-                    <span className="text-stone-300">•</span>
-                    <span className="text-stone-400">Ẩn danh: {post.display_sender}</span>
+              <article key={post.id} className={`surface-card rounded-3xl p-5 sm:p-6 ${isDeleted ? "opacity-65" : ""}`}>
+                <div className="flex flex-col gap-3 border-b border-stone-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-stone-600">
+                    <span>Gửi tới <strong className="text-stone-900">{post.display_target}</strong></span>
+                    <span className="text-stone-300">·</span>
+                    <span className="text-stone-400">{formattedDate}</span>
                   </div>
-
-                  <div>
-                    {isDeleted ? (
-                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-                        Đã xóa (Deleted)
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> Đang hiển thị
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <p className="py-3 text-xs sm:text-sm text-stone-800 leading-relaxed">
-                  {post.processed_text}
-                </p>
-
-                <div className="flex items-center justify-between pt-3 border-t border-stone-100 text-[11px] text-stone-400">
-                  <span suppressHydrationWarning>Ngày gửi: {formattedDate}</span>
-
-                  {!isDeleted && (
-                    <button
-                      onClick={() => handleDelete(post.id)}
-                      className="inline-flex items-center gap-1 text-rose-600 hover:text-rose-700 font-semibold"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Xóa bài này (Delete)
-                    </button>
+                  {isDeleted ? (
+                    <span className="w-fit rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">Đã gỡ</span>
+                  ) : (
+                    <span className="inline-flex w-fit items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Đang hiển thị</span>
                   )}
                 </div>
-              </div>
+                <p className="py-5 text-sm leading-7 text-stone-800">{post.processed_text}</p>
+                {!isDeleted && (
+                  <div className="flex justify-end border-t border-stone-100 pt-4">
+                    <button type="button" onClick={() => handleDelete(post.id)} className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50">
+                      <Trash2 className="h-3.5 w-3.5" /> Gỡ bài
+                    </button>
+                  </div>
+                )}
+              </article>
             );
           })}
         </div>

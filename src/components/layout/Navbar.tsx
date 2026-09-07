@@ -15,7 +15,9 @@ export function Navbar() {
     { href: "/submit", label: "Gửi phản hồi", icon: MessageSquarePlus },
     { href: "/my-posts", label: "Bài của tôi", icon: User },
     { href: "/policies", label: "Chính sách", icon: BookOpen },
-    { href: "/admin/reports", label: "Quản trị", icon: ShieldCheck },
+    ...((process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MODE === "true")
+      ? [{ href: "/admin/reports", label: "Quản trị demo", icon: ShieldCheck }]
+      : []),
   ];
 
   function closeMenu() {
