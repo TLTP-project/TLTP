@@ -35,7 +35,7 @@ export const lunaResponseSchema = {
         description: "Brief internal classification note for audit logs.",
       },
     },
-    required: ["decision", "public_text", "meaning_preserved"],
+    required: ["decision", "public_text", "meaning_preserved", "reasoning_notes"],
     additionalProperties: false,
   },
 };
