@@ -307,6 +307,17 @@ export async function submitFeedback(
     privateRecord.ai_decision = "processing_failed";
     if (env.NEXT_PUBLIC_DEMO_MODE) {
       mockPrivateSubmissions.push(privateRecord);
+    } else {
+      // If the private row was already written before a later insert failed,
+      // mark it as failed so it does not consume the user's retry quota.
+      const { error: recoveryError } = await createAdminClient()
+        .from("submissions_private")
+        .update({ ai_decision: "processing_failed" })
+        .eq("id", submissionId);
+
+      if (recoveryError) {
+        console.error("Failed to mark submission as processing_failed:", recoveryError);
+      }
     }
     return {
       success: false,
