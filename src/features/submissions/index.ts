@@ -134,7 +134,8 @@ export interface SubmissionServiceResult {
 export async function submitFeedback(
   userId: string,
   input: CreateSubmissionInput,
-  clientIp?: string
+  clientIp?: string,
+  clientUserAgent?: string
 ): Promise<SubmissionServiceResult> {
   // 1. Validate payload
   const validation = submissionInputSchema.safeParse(input);
@@ -226,6 +227,7 @@ export async function submitFeedback(
     target_teacher_id: input.target_teacher_id,
     raw_text: input.text,
     ip_hash: hashClientIp(clientIp),
+    user_agent: clientUserAgent,
     model: env.OPENAI_MODEL,
     reasoning_effort: env.OPENAI_REASONING_EFFORT,
     ai_decision: "publish",
@@ -254,11 +256,24 @@ export async function submitFeedback(
           target_teacher_id: input.target_teacher_id || null,
           raw_text: input.text,
           ip_hash: privateRecord.ip_hash,
+          user_agent: privateRecord.user_agent,
           model: privateRecord.model,
           reasoning_effort: privateRecord.reasoning_effort,
           ai_decision: "nothing",
         });
         if (error) throw error;
+
+        const { error: auditError } = await createAdminClient().from("moderation_audit").insert({
+          submission_id: submissionId,
+          prompt_version: "v1",
+          model: privateRecord.model,
+          decision: "nothing",
+          flags: aiResult.reasoningNotes ? { reasoning_notes: aiResult.reasoningNotes } : {},
+          token_usage: {},
+        });
+        if (auditError) {
+          console.error("Failed to write off-topic moderation audit:", auditError);
+        }
       }
       return {
         success: false,
@@ -296,6 +311,7 @@ export async function submitFeedback(
         target_teacher_id: input.target_teacher_id || null,
         raw_text: input.text,
         ip_hash: privateRecord.ip_hash,
+        user_agent: privateRecord.user_agent,
         model: privateRecord.model,
         reasoning_effort: privateRecord.reasoning_effort,
         ai_decision: "publish",
@@ -313,6 +329,19 @@ export async function submitFeedback(
         status: "published",
       });
       if (postError) throw postError;
+
+      const { error: auditError } = await supabase.from("moderation_audit").insert({
+        post_id: newPost.id,
+        submission_id: submissionId,
+        prompt_version: "v1",
+        model: privateRecord.model,
+        decision: "publish",
+        flags: aiResult.reasoningNotes ? { reasoning_notes: aiResult.reasoningNotes } : {},
+        token_usage: {},
+      });
+      if (auditError) {
+        console.error("Failed to write publish moderation audit:", auditError);
+      }
     }
 
     return {

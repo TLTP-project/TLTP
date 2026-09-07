@@ -41,7 +41,12 @@ export async function POST(request: NextRequest) {
       role: user.role,
     };
 
-    const result = await submitFeedback(user.id, submissionPayload, clientIp);
+    const result = await submitFeedback(
+      user.id,
+      submissionPayload,
+      clientIp,
+      request.headers.get("user-agent") || undefined
+    );
 
     if (!result.success) {
       const statusCode =
