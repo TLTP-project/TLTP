@@ -6,56 +6,58 @@ const booleanEnv = z.preprocess((value) => {
 }, z.boolean());
 
 const envSchema = z.object({
-  // Supabase
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url().default("https://placeholder.supabase.co"),
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().default("placeholder-anon-key"),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
-
-  // OpenAI Luna
+  DATABASE_URL: z.string().default(""),
+  BETTER_AUTH_SECRET: z.string().default("development-only-better-auth-secret-change-me"),
+  BETTER_AUTH_URL: z.string().url().default("http://localhost:5173"),
   OPENAI_API_KEY: z.string().optional().default(""),
   OPENAI_MODEL: z.string().default("gpt-5.6-luna"),
   OPENAI_REASONING_EFFORT: z.enum(["low", "medium", "high"]).default("high"),
   OPENAI_STORE: booleanEnv.default(false),
   OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().default(1200),
-
-  // Anti-abuse
-  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().optional().default(""),
+  PUBLIC_TURNSTILE_SITE_KEY: z.string().optional().default(""),
   TURNSTILE_SECRET_KEY: z.string().optional().default(""),
-
-  // Application
-  NEXT_PUBLIC_DEMO_MODE: booleanEnv.default(process.env.NODE_ENV !== "production"),
+  DEMO_MODE: booleanEnv.default(process.env.NODE_ENV !== "production"),
   ADMIN_USER_IDS: z.string().optional().default(""),
   ADMIN_GITHUB_LOGINS: z.string().optional().default(""),
   IP_HASH_SALT: z.string().optional().default("development-only-ip-salt"),
   RAW_DATA_RETENTION_DAYS: z.coerce.number().default(90),
-  NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
+  GITHUB_CLIENT_ID: z.string().optional().default(""),
+  GITHUB_CLIENT_SECRET: z.string().optional().default(""),
+  GOOGLE_CLIENT_ID: z.string().optional().default(""),
+  GOOGLE_CLIENT_SECRET: z.string().optional().default(""),
 });
 
 export type Env = z.infer<typeof envSchema>;
 
+function read(name: string, legacyName?: string): string | undefined {
+  return process.env[name] ?? (legacyName ? process.env[legacyName] : undefined);
+}
+
 function parseEnv(): Env {
   const parsed = envSchema.safeParse({
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-    OPENAI_MODEL: process.env.OPENAI_MODEL,
-    OPENAI_REASONING_EFFORT: process.env.OPENAI_REASONING_EFFORT,
-    OPENAI_STORE: process.env.OPENAI_STORE,
-    OPENAI_MAX_OUTPUT_TOKENS: process.env.OPENAI_MAX_OUTPUT_TOKENS,
-    NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
-    TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
-    ADMIN_USER_IDS: process.env.ADMIN_USER_IDS,
-    ADMIN_GITHUB_LOGINS: process.env.ADMIN_GITHUB_LOGINS,
-    RAW_DATA_RETENTION_DAYS: process.env.RAW_DATA_RETENTION_DAYS,
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-    NEXT_PUBLIC_DEMO_MODE: process.env.NEXT_PUBLIC_DEMO_MODE,
-    IP_HASH_SALT: process.env.IP_HASH_SALT,
+    DATABASE_URL: read("DATABASE_URL"),
+    BETTER_AUTH_SECRET: read("BETTER_AUTH_SECRET"),
+    BETTER_AUTH_URL: read("BETTER_AUTH_URL", "NEXT_PUBLIC_APP_URL"),
+    OPENAI_API_KEY: read("OPENAI_API_KEY"),
+    OPENAI_MODEL: read("OPENAI_MODEL"),
+    OPENAI_REASONING_EFFORT: read("OPENAI_REASONING_EFFORT"),
+    OPENAI_STORE: read("OPENAI_STORE"),
+    OPENAI_MAX_OUTPUT_TOKENS: read("OPENAI_MAX_OUTPUT_TOKENS"),
+    PUBLIC_TURNSTILE_SITE_KEY: read("PUBLIC_TURNSTILE_SITE_KEY", "NEXT_PUBLIC_TURNSTILE_SITE_KEY"),
+    TURNSTILE_SECRET_KEY: read("TURNSTILE_SECRET_KEY"),
+    DEMO_MODE: read("DEMO_MODE", "NEXT_PUBLIC_DEMO_MODE"),
+    ADMIN_USER_IDS: read("ADMIN_USER_IDS"),
+    ADMIN_GITHUB_LOGINS: read("ADMIN_GITHUB_LOGINS"),
+    IP_HASH_SALT: read("IP_HASH_SALT"),
+    RAW_DATA_RETENTION_DAYS: read("RAW_DATA_RETENTION_DAYS"),
+    GITHUB_CLIENT_ID: read("GITHUB_CLIENT_ID"),
+    GITHUB_CLIENT_SECRET: read("GITHUB_CLIENT_SECRET"),
+    GOOGLE_CLIENT_ID: read("GOOGLE_CLIENT_ID"),
+    GOOGLE_CLIENT_SECRET: read("GOOGLE_CLIENT_SECRET"),
   });
 
   if (!parsed.success) {
     console.warn("Invalid environment variables:", parsed.error.format());
-    // Fall back to defaults
     return envSchema.parse({});
   }
 

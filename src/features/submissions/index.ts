@@ -1,18 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { processFeedbackWithLuna } from "@/features/ai";
-import { hashClientIp, verifyTurnstileToken, validateSubmissionText } from "@/lib/security";
-import { env } from "@/lib/config/env";
-import { mockDatabase } from "@/lib/db";
-import { createAdminClient } from "@/lib/db";
-import { randomUUID } from "node:crypto";
-import type {
-  PostPublic,
-  SubmissionPrivate,
-  QuotaStatus,
-  CreateSubmissionInput,
-  Teacher,
-} from "@/types";
+import type { CreateSubmissionInput, PostPublic, QuotaStatus, SubmissionPrivate, Teacher } from "@/types";
 import { STUDENT_TARGET_LABEL } from "@/types";
+import { env } from "$lib/config/env";
+import { mockDatabase } from "$lib/db";
+import { hashClientIp, validateSubmissionText, verifyTurnstileToken } from "$lib/security";
+import { sql } from "$lib/server/db";
+import { deletePostForAuthor, listActiveTeachers } from "$lib/server/repository";
 
 export const submissionInputSchema = z.object({
   role: z.enum(["student", "teacher", "school"]),
@@ -22,99 +17,28 @@ export const submissionInputSchema = z.object({
   turnstile_token: z.string().optional(),
 });
 
-// In-memory submissions store for mock fallback
 const mockPrivateSubmissions: SubmissionPrivate[] = [];
 
-/**
- * Checks daily submission quota for an authenticated user:
- * - Max 1 public post per 24 hours
- * - Max 3 AI processing attempts per 24 hours
- */
 export async function checkUserQuota(userId: string): Promise<QuotaStatus> {
-  const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  let publishedToday = 0;
+  let attemptsToday = 0;
 
-  if (!env.NEXT_PUBLIC_DEMO_MODE) {
-    const supabase = createAdminClient();
-    const since = new Date(oneDayAgo).toISOString();
-    const [publishedResult, attemptsResult] = await Promise.all([
-      supabase
-        .from("posts_public")
-        .select("id", { count: "exact", head: true })
-        .eq("author_id", userId)
-        .neq("status", "deleted")
-        .gte("created_at", since),
-      supabase
-        .from("submissions_private")
-        .select("id", { count: "exact", head: true })
-        .eq("author_id", userId)
-        .neq("ai_decision", "processing_failed")
-        .gte("created_at", since),
+  if (env.DEMO_MODE || !env.DATABASE_URL) {
+    publishedToday = mockDatabase.posts.filter((post) => post.author_id === userId && post.status !== "deleted" && new Date(post.created_at) >= oneDayAgo).length;
+    attemptsToday = mockPrivateSubmissions.filter((submission) => submission.author_id === userId && submission.ai_decision !== "processing_failed" && new Date(submission.created_at) >= oneDayAgo).length;
+  } else {
+    const [published, attempts] = await Promise.all([
+      sql`SELECT COUNT(*)::int AS count FROM posts_public WHERE author_id = ${userId} AND status <> 'deleted' AND created_at >= ${oneDayAgo}`,
+      sql`SELECT COUNT(*)::int AS count FROM submissions_private WHERE author_id = ${userId} AND ai_decision <> 'processing_failed' AND created_at >= ${oneDayAgo}`,
     ]);
-
-    if (publishedResult.error) throw publishedResult.error;
-    if (attemptsResult.error) throw attemptsResult.error;
-
-    const publishedToday = publishedResult.count ?? 0;
-    const attemptsToday = attemptsResult.count ?? 0;
-
-    if (publishedToday >= 1) {
-      return {
-        can_submit: false,
-        published_today: publishedToday,
-        attempts_today: attemptsToday,
-        reason: "DAILY_POST_LIMIT_REACHED",
-      };
-    }
-
-    if (attemptsToday >= 3) {
-      return {
-        can_submit: false,
-        published_today: publishedToday,
-        attempts_today: attemptsToday,
-        reason: "DAILY_ATTEMPTS_LIMIT_REACHED",
-      };
-    }
-
-    return { can_submit: true, published_today: publishedToday, attempts_today: attemptsToday };
+    publishedToday = Number((published[0] as { count: number } | undefined)?.count ?? 0);
+    attemptsToday = Number((attempts[0] as { count: number } | undefined)?.count ?? 0);
   }
 
-  const publishedToday = mockDatabase.posts.filter(
-    (p) =>
-      p.author_id === userId &&
-      p.status !== "deleted" &&
-      new Date(p.created_at).getTime() >= oneDayAgo
-  ).length;
-
-  const attemptsToday = mockPrivateSubmissions.filter(
-    (s) =>
-      s.author_id === userId &&
-      s.ai_decision !== "processing_failed" &&
-      new Date(s.created_at).getTime() >= oneDayAgo
-  ).length;
-
-  if (publishedToday >= 1) {
-    return {
-      can_submit: false,
-      published_today: publishedToday,
-      attempts_today: attemptsToday,
-      reason: "DAILY_POST_LIMIT_REACHED",
-    };
-  }
-
-  if (attemptsToday >= 3) {
-    return {
-      can_submit: false,
-      published_today: publishedToday,
-      attempts_today: attemptsToday,
-      reason: "DAILY_ATTEMPTS_LIMIT_REACHED",
-    };
-  }
-
-  return {
-    can_submit: true,
-    published_today: publishedToday,
-    attempts_today: attemptsToday,
-  };
+  if (publishedToday >= 1) return { can_submit: false, published_today: publishedToday, attempts_today: attemptsToday, reason: "DAILY_POST_LIMIT_REACHED" };
+  if (attemptsToday >= 3) return { can_submit: false, published_today: publishedToday, attempts_today: attemptsToday, reason: "DAILY_ATTEMPTS_LIMIT_REACHED" };
+  return { can_submit: true, published_today: publishedToday, attempts_today: attemptsToday };
 }
 
 export interface SubmissionServiceResult {
@@ -124,92 +48,60 @@ export interface SubmissionServiceResult {
   reason?: "OFF_TOPIC" | "QUOTA_EXCEEDED" | "SECURITY_FAILED" | "PROCESSING_FAILED";
 }
 
-/**
- * Creates and publishes a submission according to PLAN.md section 3 & 4:
- * 1. Validate inputs
- * 2. Check bot protection (Turnstile)
- * 3. Check daily quota
- * 4. Call Luna AI once
- * 5. Publish immediately if relevant; reject if off-topic
- */
+async function savePrivateSubmission(record: SubmissionPrivate): Promise<void> {
+  await sql`
+    INSERT INTO submissions_private
+      (id, author_id, role, target, target_teacher_id, raw_text, ip_hash, user_agent, model, reasoning_effort, ai_decision, created_at)
+    VALUES
+      (${record.id}, ${record.author_id}, ${record.role}, ${record.target}, ${record.target_teacher_id}, ${record.raw_text}, ${record.ip_hash}, ${record.user_agent}, ${record.model}, ${record.reasoning_effort}, ${record.ai_decision}, ${record.created_at})
+  `;
+}
+
+async function saveAudit(params: { postId?: string; submissionId: string; model: string; decision: string; notes?: string }): Promise<void> {
+  await sql`
+    INSERT INTO moderation_audit
+      (id, post_id, submission_id, prompt_version, model, decision, flags, token_usage, created_at)
+    VALUES
+      (${randomUUID()}, ${params.postId ?? null}, ${params.submissionId}, 'v1', ${params.model}, ${params.decision}, ${JSON.stringify(params.notes ? { reasoning_notes: params.notes } : {})}::jsonb, ${JSON.stringify({})}::jsonb, NOW())
+  `;
+}
+
 export async function submitFeedback(
   userId: string,
   input: CreateSubmissionInput,
   clientIp?: string,
-  clientUserAgent?: string
+  clientUserAgent?: string,
 ): Promise<SubmissionServiceResult> {
-  // 1. Validate payload
   const validation = submissionInputSchema.safeParse(input);
-  if (!validation.success) {
-    return {
-      success: false,
-      error: validation.error.errors[0]?.message || "Dữ liệu không hợp lệ",
-    };
-  }
+  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message || "Dữ liệu không hợp lệ" };
 
   const textValidation = validateSubmissionText(input.text);
-  if (!textValidation.valid) {
-    return {
-      success: false,
-      error: textValidation.error,
-    };
-  }
+  if (!textValidation.valid) return { success: false, error: textValidation.error };
 
-  // 2. Verify Turnstile token
   const turnstileCheck = await verifyTurnstileToken(input.turnstile_token, clientIp);
-  if (!turnstileCheck.success) {
-    return {
-      success: false,
-      reason: "SECURITY_FAILED",
-      error: turnstileCheck.error,
-    };
-  }
+  if (!turnstileCheck.success) return { success: false, reason: "SECURITY_FAILED", error: turnstileCheck.error };
 
-  // 3. Quota check
   const quota = await checkUserQuota(userId);
   if (!quota.can_submit) {
-    const errorMsg =
-      quota.reason === "DAILY_POST_LIMIT_REACHED"
-        ? "Bạn đã đăng 1 bài viết trong hôm nay. Mỗi tài khoản được đăng tối đa 1 bài/ngày."
-        : "Bạn đã dùng hết 3 lượt xử lý AI trong 24 giờ qua.";
     return {
       success: false,
       reason: "QUOTA_EXCEEDED",
-      error: errorMsg,
+      error: quota.reason === "DAILY_POST_LIMIT_REACHED"
+        ? "Bạn đã đăng 1 bài viết trong hôm nay. Mỗi tài khoản được đăng tối đa 1 bài/ngày."
+        : "Bạn đã dùng hết 3 lượt xử lý AI trong 24 giờ qua.",
     };
   }
 
-  // The teacher is intentionally inferred from the submitted text. The client
-  // can no longer choose a recipient, and any legacy target fields are ignored.
   let teacherCandidates: Teacher[] = [];
-  if (env.NEXT_PUBLIC_DEMO_MODE) {
-    teacherCandidates = mockDatabase.teachers.filter((teacher) => teacher.active);
-  } else {
-    const { data, error } = await createAdminClient()
-      .from("teachers")
-      .select("id, display_name, subject, active, created_at")
-      .eq("active", true)
-      .order("display_name", { ascending: true });
-
-    if (error) {
-      console.error("Failed to load teacher candidates:", error);
-      return {
-        success: false,
-        reason: "PROCESSING_FAILED",
-        error: "Không thể tải danh sách giáo viên để AI nhận diện. Vui lòng thử lại sau ít phút.",
-      };
-    }
-    teacherCandidates = data ?? [];
+  try {
+    teacherCandidates = await listActiveTeachers();
+  } catch (error) {
+    console.error("Failed to load teacher candidates:", error);
+    return { success: false, reason: "PROCESSING_FAILED", error: "Không thể tải danh sách giáo viên để AI nhận diện." };
   }
 
-  const canonicalTarget = input.role === "student"
-    ? "Giáo viên được AI nhận diện"
-    : STUDENT_TARGET_LABEL;
-
-  // 4. Record submission attempt in private store
-  const submissionId = env.NEXT_PUBLIC_DEMO_MODE
-    ? `sub-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-    : randomUUID();
+  const canonicalTarget = input.role === "student" ? "Giáo viên được AI nhận diện" : STUDENT_TARGET_LABEL;
+  const submissionId = env.DEMO_MODE || !env.DATABASE_URL ? `sub-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` : randomUUID();
   const privateRecord: SubmissionPrivate = {
     id: submissionId,
     author_id: userId,
@@ -226,61 +118,23 @@ export async function submitFeedback(
   };
 
   try {
-    // 5. Call Luna AI pipeline
-    const aiResult = await processFeedbackWithLuna({
-      role: input.role,
-      target: canonicalTarget,
-      teachers: teacherCandidates,
-      text: input.text,
-    });
-
+    const aiResult = await processFeedbackWithLuna({ role: input.role, target: canonicalTarget, teachers: teacherCandidates, text: input.text });
     privateRecord.target = aiResult.displayTarget;
     privateRecord.target_teacher_id = aiResult.targetTeacherId || null;
 
     if (aiResult.decision === "nothing" || !aiResult.publicText) {
       privateRecord.ai_decision = "nothing";
-      if (env.NEXT_PUBLIC_DEMO_MODE) {
-        mockPrivateSubmissions.push(privateRecord);
-      } else {
-        const { error } = await createAdminClient().from("submissions_private").insert({
-          id: submissionId,
-          author_id: userId,
-          role: input.role,
-          target: privateRecord.target,
-          target_teacher_id: privateRecord.target_teacher_id || null,
-          raw_text: input.text,
-          ip_hash: privateRecord.ip_hash,
-          user_agent: privateRecord.user_agent,
-          model: privateRecord.model,
-          reasoning_effort: privateRecord.reasoning_effort,
-          ai_decision: "nothing",
-        });
-        if (error) throw error;
-
-        const { error: auditError } = await createAdminClient().from("moderation_audit").insert({
-          submission_id: submissionId,
-          prompt_version: "v1",
-          model: privateRecord.model,
-          decision: "nothing",
-          flags: aiResult.reasoningNotes ? { reasoning_notes: aiResult.reasoningNotes } : {},
-          token_usage: {},
-        });
-        if (auditError) {
-          console.error("Failed to write off-topic moderation audit:", auditError);
-        }
+      if (env.DEMO_MODE || !env.DATABASE_URL) mockPrivateSubmissions.push(privateRecord);
+      else {
+        await savePrivateSubmission(privateRecord);
+        try { await saveAudit({ submissionId, model: privateRecord.model, decision: "nothing", notes: aiResult.reasoningNotes }); } catch (auditError) { console.error("Failed to write moderation audit:", auditError); }
       }
-      return {
-        success: false,
-        reason: "OFF_TOPIC",
-        error: "Nội dung chưa liên quan đến phản hồi học đường hoặc không thuộc phạm vi trường học.",
-      };
+      return { success: false, reason: "OFF_TOPIC", error: "Nội dung chưa liên quan đến phản hồi học đường hoặc không thuộc phạm vi trường học." };
     }
 
-    // 6. Relevant -> Publish immediately
+    const now = new Date().toISOString();
     const newPost: PostPublic = {
-      id: env.NEXT_PUBLIC_DEMO_MODE
-        ? `post-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-        : randomUUID(),
+      id: env.DEMO_MODE || !env.DATABASE_URL ? `post-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` : randomUUID(),
       submission_id: submissionId,
       author_id: userId,
       processed_text: aiResult.publicText,
@@ -288,117 +142,45 @@ export async function submitFeedback(
       display_target: aiResult.displayTarget,
       target_teacher_id: aiResult.targetTeacherId || null,
       status: "published",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: now,
+      updated_at: now,
     };
 
-    if (env.NEXT_PUBLIC_DEMO_MODE) {
+    if (env.DEMO_MODE || !env.DATABASE_URL) {
       mockDatabase.posts.unshift(newPost);
       mockPrivateSubmissions.push(privateRecord);
     } else {
-      const supabase = createAdminClient();
-      const { error: submissionError } = await supabase.from("submissions_private").insert({
-        id: submissionId,
-        author_id: userId,
-        role: input.role,
-        target: privateRecord.target,
-        target_teacher_id: privateRecord.target_teacher_id || null,
-        raw_text: input.text,
-        ip_hash: privateRecord.ip_hash,
-        user_agent: privateRecord.user_agent,
-        model: privateRecord.model,
-        reasoning_effort: privateRecord.reasoning_effort,
-        ai_decision: "publish",
-      });
-      if (submissionError) throw submissionError;
-
-      const { error: postError } = await supabase.from("posts_public").insert({
-        id: newPost.id,
-        submission_id: submissionId,
-        author_id: userId,
-        processed_text: newPost.processed_text,
-        display_sender: newPost.display_sender,
-        display_target: newPost.display_target,
-        target_teacher_id: newPost.target_teacher_id || null,
-        status: "published",
-      });
-      if (postError) throw postError;
-
-      const { error: auditError } = await supabase.from("moderation_audit").insert({
-        post_id: newPost.id,
-        submission_id: submissionId,
-        prompt_version: "v1",
-        model: privateRecord.model,
-        decision: "publish",
-        flags: aiResult.reasoningNotes ? { reasoning_notes: aiResult.reasoningNotes } : {},
-        token_usage: {},
-      });
-      if (auditError) {
-        console.error("Failed to write publish moderation audit:", auditError);
-      }
+      await savePrivateSubmission(privateRecord);
+      await sql`
+        INSERT INTO posts_public
+          (id, submission_id, author_id, processed_text, display_sender, display_target, target_teacher_id, status, created_at, updated_at)
+        VALUES
+          (${newPost.id}, ${newPost.submission_id}, ${newPost.author_id}, ${newPost.processed_text}, ${newPost.display_sender}, ${newPost.display_target}, ${newPost.target_teacher_id}, 'published', ${newPost.created_at}, ${newPost.updated_at})
+      `;
+      try { await saveAudit({ postId: newPost.id, submissionId, model: privateRecord.model, decision: "publish", notes: aiResult.reasoningNotes }); } catch (auditError) { console.error("Failed to write moderation audit:", auditError); }
     }
 
-    return {
-      success: true,
-      post: newPost,
-    };
-  } catch (err) {
-    console.error("Submission processing error:", err);
+    return { success: true, post: newPost };
+  } catch (error) {
+    console.error("Submission processing error:", error);
     privateRecord.ai_decision = "processing_failed";
-    if (env.NEXT_PUBLIC_DEMO_MODE) {
-      mockPrivateSubmissions.push(privateRecord);
-    } else {
-      // If the private row was already written before a later insert failed,
-      // mark it as failed so it does not consume the user's retry quota.
-      const { error: recoveryError } = await createAdminClient()
-        .from("submissions_private")
-        .update({ ai_decision: "processing_failed" })
-        .eq("id", submissionId);
-
-      if (recoveryError) {
-        console.error("Failed to mark submission as processing_failed:", recoveryError);
-      }
+    if (env.DEMO_MODE || !env.DATABASE_URL) mockPrivateSubmissions.push(privateRecord);
+    else {
+      try {
+        await sql`
+          INSERT INTO submissions_private
+            (id, author_id, role, target, target_teacher_id, raw_text, ip_hash, user_agent, model, reasoning_effort, ai_decision, created_at)
+          VALUES
+            (${privateRecord.id}, ${privateRecord.author_id}, ${privateRecord.role}, ${privateRecord.target}, ${privateRecord.target_teacher_id}, ${privateRecord.raw_text}, ${privateRecord.ip_hash}, ${privateRecord.user_agent}, ${privateRecord.model}, ${privateRecord.reasoning_effort}, 'processing_failed', ${privateRecord.created_at})
+          ON CONFLICT (id) DO UPDATE SET ai_decision = 'processing_failed'
+        `;
+      } catch (recoveryError) { console.error("Failed to record failed submission:", recoveryError); }
     }
-    return {
-      success: false,
-      reason: "PROCESSING_FAILED",
-      error: "Hệ thống xử lý AI tạm thời gián đoạn. Vui lòng thử lại sau ít phút.",
-    };
+    return { success: false, reason: "PROCESSING_FAILED", error: "Hệ thống xử lý AI tạm thời gián đoạn. Vui lòng thử lại sau ít phút." };
   }
 }
 
-/**
- * Soft deletes a post (Keep / Delete action from author).
- */
-export async function softDeletePost(
-  userId: string,
-  postId: string
-): Promise<{ success: boolean; error?: string }> {
-  if (!env.NEXT_PUBLIC_DEMO_MODE) {
-    const { data, error } = await createAdminClient()
-      .from("posts_public")
-      .update({ status: "deleted", deleted_at: new Date().toISOString() })
-      .eq("id", postId)
-      .eq("author_id", userId)
-      .select("id")
-      .maybeSingle();
-
-    if (error) return { success: false, error: "Không thể gỡ bài viết lúc này" };
-    if (!data) return { success: false, error: "Bài viết không tồn tại hoặc không thuộc về bạn" };
-    return { success: true };
-  }
-
-  const post = mockDatabase.posts.find((p) => p.id === postId);
-  if (!post) return { success: false, error: "Bài viết không tồn tại" };
-
-  // Strict ownership check: only author can delete
-  if (!post.author_id || post.author_id !== userId) {
-    return { success: false, error: "Bạn không có quyền xóa bài viết này" };
-  }
-
-  post.status = "deleted";
-  post.deleted_at = new Date().toISOString();
-  post.updated_at = new Date().toISOString();
-
-  return { success: true };
+export async function softDeletePost(userId: string, postId: string): Promise<{ success: boolean; error?: string }> {
+  const deleted = await deletePostForAuthor(userId, postId);
+  return deleted ? { success: true } : { success: false, error: "Bài viết không tồn tại hoặc không thuộc về bạn" };
 }

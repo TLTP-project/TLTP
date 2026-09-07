@@ -1,37 +1,8 @@
-import { createClient } from "@supabase/supabase-js";
 import type { PostPublic, Teacher } from "@/types";
+export { assertDatabaseConfigured, db, sql } from "$lib/server/db";
 
-// Public / Browser client
-export function createBrowserClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
-  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "placeholder-anon-key";
-
-  return createClient(
-    supabaseUrl,
-    publishableKey
-  );
-}
-
-// Server Admin client (Service role - bypasses RLS for trusted backend operations)
-export function createAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceKey) {
-    throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY is required for trusted server-side database operations."
-    );
-  }
-
-  return createClient(supabaseUrl, serviceKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
-
-// In-memory mock data store for local dev when Supabase is not connected
+// Deterministic data keeps local demo mode useful before a Neon connection is
+// configured. Production API handlers use the Neon-backed server database.
 export const mockDatabase = {
   teachers: [
     { id: "11111111-1111-1111-1111-111111111111", display_name: "Thầy Nguyễn Văn A", subject: "Toán học", active: true, created_at: new Date().toISOString() },
@@ -54,6 +25,7 @@ export const mockDatabase = {
     },
     {
       id: "post-102",
+      author_id: "user-student-demo",
       processed_text: "Về bài kiểm tra giữa kỳ môn Văn vừa rồi, em nhận thấy cách chấm điểm dường như có sự chênh lệch khá lớn giữa các bạn trong đội tuyển học sinh giỏi và các bạn còn lại dù có cùng luận điểm làm bài. Em rất mong cô có thể công khai barem điểm chi tiết từng phần để cả lớp hiểu rõ tiêu chí và cảm thấy công bằng, thuyết phục hơn ạ.",
       display_sender: "Student puppy",
       display_target: "Cô Trần Thị B",
@@ -64,6 +36,7 @@ export const mockDatabase = {
     },
     {
       id: "post-104",
+      author_id: "user-student-demo",
       processed_text: "Các dạng bài trong đề kiểm tra 1 tiết có độ khó nâng cao vượt bậc so với những gì cô hướng dẫn trên lớp, và hầu như chỉ những bạn đi học thêm tại lớp riêng của cô mới từng được tiếp cận các dạng đề này trước. Em rất hy vọng cô có thể mở rộng hướng dẫn các phương pháp giải nâng cao ngay trong tiết học chính khóa để tất cả học sinh đều có cơ hội học tập công bằng.",
       display_sender: "Student chirpy",
       display_target: "Cô Phạm Thị D",
@@ -74,6 +47,7 @@ export const mockDatabase = {
     },
     {
       id: "post-105",
+      author_id: "user-student-demo",
       processed_text: "Khu vực nhà vệ sinh học sinh tại tầng 3 dãy nhà B hiện tại thường xuyên bị thiếu nước xả, bốc mùi khó chịu và không có xà phòng rửa tay, gây ảnh hưởng rất lớn đến sinh hoạt và sức khỏe của học sinh. Chúng em rất mong ban giám hiệu nhà trường sớm kiểm tra và có kế hoạch cải tạo lại để môi trường học tập được đảm bảo vệ sinh hơn.",
       display_sender: "Student otter",
       display_target: "Nhà trường & Ban Giám Hiệu",

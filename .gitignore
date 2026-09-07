@@ -3,6 +3,7 @@ node_modules/
 .pnpm-store/
 
 # SvelteKit / build output
+.next/
 .svelte-kit/
 .vercel/output/
 out/

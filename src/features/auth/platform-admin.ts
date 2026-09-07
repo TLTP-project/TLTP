@@ -1,81 +1,59 @@
-import "server-only";
-
-import type { User } from "@supabase/supabase-js";
-import { env } from "@/lib/config/env";
-import { createAdminClient } from "@/lib/db";
+import type { User } from "better-auth";
+import { env } from "$lib/config/env";
+import { sql } from "$lib/server/db";
 
 function csvValues(value: string): Set<string> {
-  return new Set(
-    value
-      .split(",")
-      .map((item) => item.trim().toLowerCase())
-      .filter(Boolean)
-  );
+  return new Set(value.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean));
 }
 
 function textValue(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+/** Better Auth stores the provider profile as the user name; keep a small
+ * fallback chain so an explicitly configured GitHub login can bootstrap an
+ * administrator on first OAuth sign-in. */
 export function getGitHubLogin(user: User): string | null {
-  const githubIdentity = user.identities?.find((identity) => identity.provider === "github");
-  const identityData = githubIdentity?.identity_data;
-
-  return (
-    textValue(identityData?.user_name) ??
-    textValue(identityData?.preferred_username) ??
-    textValue(identityData?.login) ??
-    textValue(user.user_metadata?.user_name) ??
-    textValue(user.user_metadata?.preferred_username)
-  );
+  return textValue(user.name) ?? (user.email ? textValue(user.email.split("@")[0]) : null);
 }
 
-/**
- * Synchronizes GitHub-based administrator access after OAuth completes.
- * Profile roles remain independent from platform administration.
- */
 export async function syncPlatformAdminFromGitHub(user: User): Promise<boolean> {
   const bootstrapUserIds = csvValues(env.ADMIN_USER_IDS);
   const isBootstrapAdmin = bootstrapUserIds.has(user.id.toLowerCase());
   const githubLogin = getGitHubLogin(user);
-
-  if (!githubLogin) return isBootstrapAdmin;
-
   const configuredLogins = csvValues(env.ADMIN_GITHUB_LOGINS);
-  const isConfiguredAdmin = configuredLogins.has(githubLogin.toLowerCase());
+  const isConfiguredAdmin = Boolean(githubLogin && configuredLogins.has(githubLogin.toLowerCase()));
+
+  if (!env.DATABASE_URL) return isBootstrapAdmin || isConfiguredAdmin;
 
   try {
-    const supabase = createAdminClient();
-    const { data: existing, error: readError } = await supabase
-      .from("platform_admins")
-      .select("grant_source")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (readError) throw readError;
+    const existing = await sql`
+      SELECT grant_source FROM platform_admins WHERE user_id = ${user.id} LIMIT 1
+    `;
 
     if (isConfiguredAdmin) {
-      const { error } = await supabase.from("platform_admins").upsert({
-        user_id: user.id,
-        github_login: githubLogin,
-        grant_source: existing?.grant_source === "manual" ? "manual" : "environment",
-      });
-      if (error) throw error;
+      await sql`
+        INSERT INTO platform_admins (user_id, github_login, grant_source, created_at, updated_at)
+        VALUES (${user.id}, ${githubLogin}, 'environment', NOW(), NOW())
+        ON CONFLICT (user_id) DO UPDATE SET
+          github_login = EXCLUDED.github_login,
+          grant_source = CASE WHEN platform_admins.grant_source = 'manual' THEN 'manual' ELSE 'environment' END,
+          updated_at = NOW()
+      `;
       return true;
     }
 
-    if (existing?.grant_source === "environment") {
-      const { error } = await supabase
-        .from("platform_admins")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("grant_source", "environment");
-      if (error) throw error;
+    if (existing[0]?.grant_source === "environment") {
+      await sql`DELETE FROM platform_admins WHERE user_id = ${user.id} AND grant_source = 'environment'`;
     }
 
-    return isBootstrapAdmin || existing?.grant_source === "manual";
+    return isBootstrapAdmin || existing[0]?.grant_source === "manual";
   } catch (error) {
-    console.error("Unable to synchronize GitHub administrator access:", error);
-    return isBootstrapAdmin;
+    console.error("Unable to synchronize platform administrator access:", error);
+    return isBootstrapAdmin || isConfiguredAdmin;
   }
+}
+
+export async function isPlatformAdmin(user: User): Promise<boolean> {
+  return syncPlatformAdminFromGitHub(user);
 }
