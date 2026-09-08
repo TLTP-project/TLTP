@@ -10,6 +10,7 @@ export const mockDatabase = {
     { id: "33333333-3333-3333-3333-333333333333", display_name: "Thầy Lê Văn C", subject: "Vật lý", active: true, created_at: new Date().toISOString() },
     { id: "44444444-4444-4444-4444-444444444444", display_name: "Cô Phạm Thị D", subject: "Tiếng Anh", active: true, created_at: new Date().toISOString() },
     { id: "55555555-5555-5555-5555-555555555555", display_name: "Thầy Hoàng Văn E", subject: "Hóa học", active: true, created_at: new Date().toISOString() },
+    { id: "66666666-6666-6666-6666-666666666666", display_name: "Cô Ngô Thị H", subject: "Tin học", active: true, created_at: new Date().toISOString() },
   ] as Teacher[],
   posts: [
     {

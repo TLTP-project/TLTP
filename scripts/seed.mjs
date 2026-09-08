@@ -12,7 +12,8 @@ await sql`
     ('22222222-2222-2222-2222-222222222222', 'Cô Trần Thị B', 'Ngữ văn', true),
     ('33333333-3333-3333-3333-333333333333', 'Thầy Lê Văn C', 'Vật lý', true),
     ('44444444-4444-4444-4444-444444444444', 'Cô Phạm Thị D', 'Tiếng Anh', true),
-    ('55555555-5555-5555-5555-555555555555', 'Thầy Hoàng Văn E', 'Hóa học', true)
+    ('55555555-5555-5555-5555-555555555555', 'Thầy Hoàng Văn E', 'Hóa học', true),
+    ('66666666-6666-6666-6666-666666666666', 'Cô Ngô Thị H', 'Tin học', true)
   ON CONFLICT (id) DO UPDATE SET
     display_name = EXCLUDED.display_name,
     subject = EXCLUDED.subject,
