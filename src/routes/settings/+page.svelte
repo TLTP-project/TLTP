@@ -5,6 +5,8 @@
   export let data: PageData;
 
   $: displayName = data.user.name?.trim() || data.user.email?.split("@")[0] || "Tài khoản";
+  const roleLabels = { student: "Học sinh", teacher: "Giáo viên", school: "Nhà trường" } as const;
+  const verificationLabels = { active: "Đã xác nhận", pending_verification: "Đang chờ xác nhận", rejected: "Cần kiểm tra lại" } as const;
 </script>
 
 <svelte:head><title>Cài đặt tài khoản · TLTP</title></svelte:head>
@@ -31,5 +33,16 @@
     <div class="mt-7 rounded-2xl bg-amber-50 px-4 py-4 text-sm leading-6 text-stone-700">
       Muốn đổi tên hoặc ảnh đại diện, hãy cập nhật trực tiếp ở GitHub/Google rồi đăng nhập lại.
     </div>
+    <div class="mt-5 grid gap-3 sm:grid-cols-2">
+      <div class="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+        <p class="text-xs font-bold uppercase tracking-wide text-stone-400">Vai trò tài khoản</p>
+        <p class="mt-1 font-bold text-stone-800">{roleLabels[data.role]}</p>
+      </div>
+      <div class="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+        <p class="text-xs font-bold uppercase tracking-wide text-stone-400">Trạng thái vai trò</p>
+        <p class="mt-1 font-bold text-stone-800">{verificationLabels[data.verificationStatus]}</p>
+      </div>
+    </div>
+    <p class="mt-4 text-xs leading-5 text-stone-500">Vai trò này được hệ thống lưu theo tài khoản và tự dùng khi bạn gửi phản hồi; không cần chọn lại mỗi lần.</p>
   </section>
 </div>
