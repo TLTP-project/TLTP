@@ -11,6 +11,7 @@
   let deleteError = "";
 
   const dateFormatter = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  $: isDeleted = post.status === "deleted";
 
   async function deletePost() {
     if (!canDelete || isDeleting) return;
@@ -47,12 +48,20 @@
     </div>
     <time datetime={post.created_at}>{dateFormatter.format(new Date(post.created_at))}</time>
   </div>
-  <p class="mt-5 whitespace-pre-wrap text-[0.98rem] leading-7 text-stone-800">{post.processed_text}</p>
+  {#if isDeleted}
+    <div class="mt-5 rounded-2xl bg-stone-100 px-4 py-4 text-sm font-semibold text-stone-500">Bài viết đã bị xóa. Nội dung không còn hiển thị.</div>
+  {:else}
+    <p class="mt-5 whitespace-pre-wrap text-[0.98rem] leading-7 text-stone-800">{post.processed_text}</p>
+  {/if}
   <div class="mt-5 flex items-center justify-between border-t border-stone-200/80 pt-4">
-    <a class="inline-flex items-center gap-1 text-xs font-bold text-stone-500 hover:text-amber-700" href={`/posts/${post.id}`}>
-      Đọc chi tiết <ArrowUpRight size={14} />
-    </a>
-    {#if canDelete}
+    {#if isDeleted}
+      <span class="inline-flex items-center gap-1 text-xs font-bold text-stone-400">Đã bị xóa</span>
+    {:else}
+      <a class="inline-flex items-center gap-1 text-xs font-bold text-stone-500 hover:text-amber-700" href={`/posts/${post.id}`}>
+        Đọc chi tiết <ArrowUpRight size={14} />
+      </a>
+    {/if}
+    {#if canDelete && !isDeleted}
       <div class="flex flex-col items-end gap-1">
         <button
           type="button"
@@ -65,7 +74,7 @@
         </button>
         {#if deleteError}<span class="text-right text-[0.7rem] font-semibold text-rose-600">{deleteError}</span>{/if}
       </div>
-    {:else if canReport}
+    {:else if canReport && !isDeleted}
       <a class="inline-flex items-center gap-1 text-xs font-semibold text-stone-400 hover:text-rose-600" href={`/posts/${post.id}?report=1`}>
         <Flag size={14} /> Báo cáo
       </a>

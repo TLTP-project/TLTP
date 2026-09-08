@@ -1,4 +1,4 @@
-import type { PostPublic, Teacher } from "@/types";
+import type { CommentPublic, PostPublic, Teacher } from "@/types";
 export { assertDatabaseConfigured, db, sql } from "$lib/server/db";
 
 // Deterministic data keeps local demo mode useful before a Neon connection is
@@ -58,4 +58,5 @@ export const mockDatabase = {
       updated_at: "2026-09-06T10:00:00.000Z",
     },
   ] as PostPublic[],
+  comments: [] as CommentPublic[],
 };

@@ -51,6 +51,18 @@ export interface PostPublic {
   deleted_at?: string | null;
 }
 
+export interface CommentPublic {
+  id: string;
+  post_id: string;
+  author_id?: string | null;
+  processed_text: string;
+  display_sender: string;
+  status: PostStatus;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+}
+
 export interface SubmissionPrivate {
   id: string;
   author_id: string;

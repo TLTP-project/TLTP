@@ -103,6 +103,19 @@ export const postsPublic = pgTable("posts_public", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
+export const comments = pgTable("comments", {
+  id: text("id").primaryKey(),
+  postId: text("post_id").notNull().references(() => postsPublic.id, { onDelete: "cascade" }),
+  authorId: text("author_id").references(() => user.id, { onDelete: "set null" }),
+  role: text("role").notNull(),
+  processedText: text("processed_text").notNull(),
+  displaySender: text("display_sender").notNull(),
+  status: text("status").notNull().default("published"),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
 export const reports = pgTable("reports", {
   id: text("id").primaryKey(),
   postId: text("post_id").notNull().references(() => postsPublic.id, { onDelete: "cascade" }),
@@ -160,6 +173,7 @@ export const schema = {
   teachers,
   submissionsPrivate,
   postsPublic,
+  comments,
   reports,
   moderationAudit,
   rateLimits,

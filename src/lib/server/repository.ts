@@ -1,4 +1,4 @@
-import type { PostPublic, Teacher } from "@/types";
+import type { CommentPublic, PostPublic, Teacher } from "@/types";
 import { env } from "$lib/config/env";
 import { mockDatabase } from "$lib/db";
 import { sql } from "$lib/server/db";
@@ -23,6 +23,20 @@ function mapPost(row: Record<string, unknown>): PostPublic {
     display_target: String(row.display_target),
     target_teacher_id: row.target_teacher_id ? String(row.target_teacher_id) : null,
     status: row.status as PostPublic["status"],
+    created_at: new Date(String(row.created_at)).toISOString(),
+    updated_at: new Date(String(row.updated_at)).toISOString(),
+    deleted_at: row.deleted_at ? new Date(String(row.deleted_at)).toISOString() : null,
+  };
+}
+
+function mapComment(row: Record<string, unknown>): CommentPublic {
+  return {
+    id: String(row.id),
+    post_id: String(row.post_id),
+    author_id: row.author_id ? String(row.author_id) : null,
+    processed_text: String(row.processed_text),
+    display_sender: String(row.display_sender),
+    status: row.status as CommentPublic["status"],
     created_at: new Date(String(row.created_at)).toISOString(),
     updated_at: new Date(String(row.updated_at)).toISOString(),
     deleted_at: row.deleted_at ? new Date(String(row.deleted_at)).toISOString() : null,
@@ -55,19 +69,19 @@ export async function listPublishedPosts(limit = 50): Promise<PostPublic[]> {
 
 export async function getPostById(postId: string): Promise<PostPublic | null> {
   if (env.DEMO_MODE || !env.DATABASE_URL) {
-    return mockDatabase.posts.find((post) => post.id === postId && post.status !== "deleted") ?? null;
+    return mockDatabase.posts.find((post) => post.id === postId) ?? null;
   }
   const rows = await sql`
     SELECT id, submission_id, author_id, processed_text, display_sender,
       display_target, target_teacher_id, status, created_at, updated_at, deleted_at
-    FROM posts_public WHERE id = ${postId} AND status <> 'deleted' LIMIT 1
+    FROM posts_public WHERE id = ${postId} LIMIT 1
   `;
   return rows[0] ? mapPost(rows[0] as Record<string, unknown>) : null;
 }
 
 export async function listPostsByAuthor(authorId: string): Promise<PostPublic[]> {
   if (env.DEMO_MODE || !env.DATABASE_URL) {
-    return mockDatabase.posts.filter((post) => post.author_id === authorId && post.status !== "deleted");
+    return mockDatabase.posts.filter((post) => post.author_id === authorId);
   }
   const rows = await sql`
     SELECT id, submission_id, author_id, processed_text, display_sender,
@@ -76,6 +90,21 @@ export async function listPostsByAuthor(authorId: string): Promise<PostPublic[]>
     ORDER BY created_at DESC
   `;
   return rows.map((row) => mapPost(row as Record<string, unknown>));
+}
+
+export async function listCommentsByPost(postId: string): Promise<CommentPublic[]> {
+  if (env.DEMO_MODE || !env.DATABASE_URL) {
+    return mockDatabase.comments
+      .filter((comment) => comment.post_id === postId && comment.status === "published")
+      .sort((left, right) => left.created_at.localeCompare(right.created_at));
+  }
+  const rows = await sql`
+    SELECT id, post_id, author_id, processed_text, display_sender, status, created_at, updated_at, deleted_at
+    FROM comments
+    WHERE post_id = ${postId} AND status = 'published'
+    ORDER BY created_at ASC
+  `;
+  return rows.map((row) => mapComment(row as Record<string, unknown>));
 }
 
 export async function deletePostForAuthor(authorId: string, postId: string): Promise<boolean> {

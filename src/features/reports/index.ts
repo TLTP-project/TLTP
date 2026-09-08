@@ -44,7 +44,7 @@ export async function submitReport(reporterId: string | null, input: unknown): P
   const parsed = createReportSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message };
   const post = await getPostById(parsed.data.post_id);
-  if (!post) return { success: false, error: "Bài viết không tồn tại để báo cáo." };
+  if (!post || post.status !== "published") return { success: false, error: "Bài viết không còn để báo cáo." };
 
   const now = new Date().toISOString();
   const report: Report = {
