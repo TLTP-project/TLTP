@@ -3,6 +3,9 @@
   import Lenis from "$lib/components/Lenis.svelte";
   import SiteFooter from "$lib/components/SiteFooter.svelte";
   import SiteNav from "$lib/components/SiteNav.svelte";
+  import type { LayoutData } from "./$types";
+
+  export let data: LayoutData;
 </script>
 
 <svelte:head>
@@ -13,7 +16,7 @@
 
 <Lenis />
 <div class="flex min-h-screen flex-col">
-  <SiteNav />
+  <SiteNav user={data.user} />
   <main class="w-full flex-1"><slot /></main>
   <SiteFooter />
 </div>
