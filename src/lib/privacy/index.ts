@@ -38,6 +38,14 @@ const TEACHER_ALIASES = [
 
 export const TARGET_TEACHER_PLACEHOLDER = "[[TARGET_TEACHER]]";
 
+const TEACHER_MENTION_PATTERN = /\b(?:[Tt]hầy|[Cc]ô)\s+\p{Lu}[\p{L}'-]*(?:\s+\p{Lu}[\p{L}'-]*){0,3}/gu;
+
+/** Extracts a teacher mention so it can be preserved while other names are redacted. */
+export function extractTeacherMention(text: string): string | undefined {
+  const match = text.match(TEACHER_MENTION_PATTERN)?.[0];
+  return match?.replace(/\s+/g, " ").trim() || undefined;
+}
+
 const VIETNAMESE_SURNAMES =
   "Nguyễn|Trần|Lê|Phạm|Hoàng|Vũ|Võ|Đặng|Bùi|Đỗ|Ngô|Dương|Lý|Huỳnh|Phan|Mai|Tạ|Đinh|Cao|Tô|Hồ|Trương|Lương|Đào|Đoàn|Hà|Phùng|Quách|Châu|Tôn|Thái|Kiều|Chung";
 const VIETNAMESE_NAME_PART = "[A-ZÀ-Ỵ][a-zà-ỹ]+";

@@ -27,8 +27,8 @@ export type AiDecision = "publish" | "nothing" | "processing_failed";
 export interface AiRewriteResult {
   decision: "publish" | "nothing";
   public_text: string | null;
-  /** Canonical teacher selected by the AI from the active teacher list. */
-  target_teacher_id?: string | null;
+  /** Teacher name identified by the AI from the submitted text, or null. */
+  teacher_name?: string | null;
   meaning_preserved?: boolean;
   display_sender?: string;
   display_target?: string;

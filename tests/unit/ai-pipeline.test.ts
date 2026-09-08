@@ -17,6 +17,8 @@ describe("AI Luna Pipeline", () => {
     expect(prompt).toContain("TONE SOFTENING");
     expect(prompt).toContain("Student → Teacher");
     expect(prompt).toContain("Tiết học hơi khó hiểu");
+    expect(prompt).toContain("teacher_name");
+    expect(prompt).not.toContain("KNOWN ACTIVE TEACHERS");
   });
 
   it("keeps teacher and school feedback anonymous toward the generic student target", () => {
@@ -47,13 +49,6 @@ describe("AI Luna Pipeline", () => {
       role: "student",
       target: "Thầy Nguyễn Văn A",
       teacherName: "Thầy Nguyễn Văn A",
-      teachers: [{
-        id: "11111111-1111-1111-1111-111111111111",
-        display_name: "Thầy Nguyễn Văn A",
-        subject: "Toán học",
-        active: true,
-        created_at: new Date().toISOString(),
-      }],
       text: "Thầy Nguyễn Văn A cho bài tập nhiều quá làm không kịp.",
     });
 
@@ -61,6 +56,17 @@ describe("AI Luna Pipeline", () => {
     expect(result.publicText).toBeTruthy();
     expect(result.displaySender).toMatch(/^Student /);
     expect(result.displayTarget).toBe("Thầy Nguyễn Văn A");
-    expect(result.targetTeacherId).toBe("11111111-1111-1111-1111-111111111111");
+    expect(result.targetTeacherId).toBeNull();
+  });
+
+  it("extracts an arbitrary teacher name without a teacher allow-list", async () => {
+    const result = await processFeedbackWithLuna({
+      role: "student",
+      target: "Giáo viên được AI nhận diện",
+      text: "Cô Ngô Thị H ơi, em mong cô phản hồi rõ hơn về góp ý của lớp ạ.",
+    });
+
+    expect(result.decision).toBe("publish");
+    expect(result.displayTarget).toBe("Cô Ngô Thị H");
   });
 });

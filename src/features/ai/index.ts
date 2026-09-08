@@ -5,9 +5,10 @@ import {
   redactPII,
   redactPotentialNames,
   generateAnonymousAlias,
+  extractTeacherMention,
   TARGET_TEACHER_PLACEHOLDER,
 } from "@/lib/privacy";
-import type { UserRole, AiRewriteResult, Teacher } from "@/types";
+import type { UserRole, AiRewriteResult } from "@/types";
 
 /**
  * Builds the strict system prompt for GPT-5.6 Luna based on PLAN.md specifications.
@@ -17,21 +18,13 @@ export function buildLunaPrompt(params: {
   target: string;
   hasTeacherTarget: boolean;
   sanitizedText: string;
-  teachers?: Teacher[];
-  matchedTeacher?: Teacher;
 }): string {
-  const { role, target, hasTeacherTarget, sanitizedText, teachers = [], matchedTeacher } = params;
+  const { role, target, hasTeacherTarget, sanitizedText } = params;
   const targetContract = hasTeacherTarget ? TARGET_TEACHER_PLACEHOLDER : target;
   const safeText = sanitizedText.replaceAll('"""', '\\"\\"\\"');
   const relationshipContract = role === "student"
     ? "- Relationship: Student → Teacher. Keep the student sender anonymous; the identified teacher may remain named."
     : "- Relationship: Teacher/School → Student or class. Keep both the sender and every student identity anonymous; use only the generic target label.";
-  const teacherCandidates = teachers.length
-    ? teachers
-        .filter((teacher) => teacher.active)
-        .map((teacher) => `- ${teacher.id}: ${teacher.display_name}${teacher.subject ? ` (${teacher.subject})` : ""}`)
-        .join("\n")
-    : "- No active teacher candidates are available.";
 
   return `You are the AI feedback moderation and rewriting engine for "Trải Lòng Trần Phú" (TLTP), an anonymous school community feedback forum.
 
@@ -40,14 +33,11 @@ ROLE CONTRACT:
 - Target: ${targetContract}
 ${relationshipContract}
 ${hasTeacherTarget ? `- Target Teacher Placeholder: ${TARGET_TEACHER_PLACEHOLDER} (MUST be preserved verbatim if referenced)` : ""}
-${matchedTeacher ? `- Canonical match for the placeholder: ${matchedTeacher.id} (${matchedTeacher.display_name}). Use this ID.` : ""}
-KNOWN ACTIVE TEACHERS (use only these canonical IDs):
-${teacherCandidates}
 INSTRUCTIONS:
 1. TOPIC & RELEVANCE EVALUATION:
    - Check if the submitted text is genuine school-related feedback, experiences, or constructive suggestions regarding teaching, classroom conduct, learning facilities, curriculum, or school activities.
    - If the text is completely unrelated to school/education (e.g. general spam, advertisements, unrelated personal stories, random gaming chatter, off-topic rants), return:
-     {"decision": "nothing", "public_text": null, "meaning_preserved": true, "reasoning_notes": "Off-topic or not school feedback"}
+     {"decision": "nothing", "public_text": null, "teacher_name": null, "meaning_preserved": true, "reasoning_notes": "Off-topic or not school feedback"}
 
 2. TONE SOFTENING & RESPECTFUL REWRITE:
    - Relevant feedback is NOT rejected just because the original wording is harsh, emotional, slangy, angry, or vulgar.
@@ -64,10 +54,15 @@ INSTRUCTIONS:
    - Do NOT include any student names, personal phone numbers, emails, addresses, or private identities.
 
 4. RECIPIENT IDENTIFICATION:
-   - For a student submission, inspect the original meaning and select the matching canonical teacher ID from the list when the teacher is named or clearly identified by context.
-   - If no teacher can be identified with confidence, return a null target_teacher_id. Never invent an ID.
-   - For teacher or school submissions, target_teacher_id MUST be null.
-   - Always include target_teacher_id in the structured response, including when decision is "nothing".
+   - For a student submission, inspect the original meaning and return the teacher's name when the teacher is named or clearly identified in the submitted text.
+   - If the target teacher placeholder is present, return the placeholder exactly as the teacher_name value. Never invent a teacher name.
+   - If no teacher can be identified with confidence, return teacher_name: null.
+   - For teacher or school submissions, teacher_name MUST be null.
+
+RESPONSE JSON CONTRACT:
+   - teacher_name: the identified teacher name or null.
+   - public_text: the rewritten feedback after softening the tone, or null when decision is "nothing".
+   - Also return decision, meaning_preserved, and reasoning_notes.
 
 5. SEVERE SAFETY RISKS:
    - Specific immediate threats of violence, self-harm, sexual harassment or child abuse must be classified with a warning note in "reasoning_notes", while softening the public text or recommending moderation review.
@@ -82,7 +77,6 @@ export interface ProcessFeedbackInput {
   role: UserRole;
   target: string;
   teacherName?: string;
-  teachers?: Teacher[];
   text: string;
 }
 
@@ -105,12 +99,8 @@ function normalizeForTeacherMatch(value: string): string {
     .trim();
 }
 
-function findMentionedTeacher(text: string, teachers: Teacher[]): Teacher | undefined {
-  const normalizedText = normalizeForTeacherMatch(text);
-  return teachers
-    .filter((teacher) => teacher.active)
-    .sort((left, right) => right.display_name.length - left.display_name.length)
-    .find((teacher) => normalizedText.includes(normalizeForTeacherMatch(teacher.display_name)));
+function isMentionedTeacherName(text: string, teacherName: string): boolean {
+  return normalizeForTeacherMatch(text).includes(normalizeForTeacherMatch(teacherName));
 }
 
 /**
@@ -124,13 +114,10 @@ function findMentionedTeacher(text: string, teachers: Teacher[]): Teacher | unde
 export async function processFeedbackWithLuna(
   input: ProcessFeedbackInput
 ): Promise<ProcessFeedbackOutput> {
-  const { role, target, teacherName, teachers = [], text } = input;
-  const activeTeachers = teachers.filter((teacher) => teacher.active);
-  const mentionedTeacher = role === "student" ? findMentionedTeacher(text, activeTeachers) : undefined;
-  const knownTeacher = teacherName
-    ? activeTeachers.find((teacher) => teacher.display_name === teacherName)
+  const { role, target, teacherName, text } = input;
+  const teacherToPreserve = role === "student"
+    ? teacherName?.trim() || extractTeacherMention(text)
     : undefined;
-  const teacherToPreserve = teacherName || mentionedTeacher?.display_name;
 
   // Step 1: Redact PII
   let sanitized = redactPII(text);
@@ -148,16 +135,20 @@ export async function processFeedbackWithLuna(
     target,
     hasTeacherTarget,
     sanitizedText: sanitized,
-    teachers: activeTeachers,
-    matchedTeacher: mentionedTeacher || knownTeacher,
   });
 
-  const aiResult: AiRewriteResult = await callLunaRewrite(prompt, activeTeachers);
-  const selectedTeacher = role === "student"
-    ? activeTeachers.find((teacher) => teacher.id === aiResult.target_teacher_id) || mentionedTeacher || knownTeacher
+  const aiResult: AiRewriteResult = await callLunaRewrite(prompt);
+  const aiTeacherName = aiResult.teacher_name?.trim() || undefined;
+  const resolvedTeacherName = role === "student"
+    ? teacherToPreserve || (
+      aiTeacherName &&
+      aiTeacherName !== TARGET_TEACHER_PLACEHOLDER &&
+      isMentionedTeacherName(text, aiTeacherName)
+        ? aiTeacherName
+        : undefined
+    )
     : undefined;
-  const resolvedTeacherName = selectedTeacher?.display_name || teacherName;
-  const resolvedTeacherId = selectedTeacher?.id || (teacherName ? knownTeacher?.id : undefined) || null;
+  const resolvedTeacherId = null;
 
   // Step 4: Handle decisions
   if (aiResult.decision === "nothing" || !aiResult.public_text) {

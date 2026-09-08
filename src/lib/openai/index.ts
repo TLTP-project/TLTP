@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { env } from "@/lib/config/env";
-import type { AiRewriteResult, Teacher } from "@/types";
+import type { AiRewriteResult } from "@/types";
 
 // Initialize OpenAI client
 export const openai = new OpenAI({
@@ -10,9 +10,7 @@ export const openai = new OpenAI({
 /**
  * Structured Output JSON Schema for GPT-5.6 Luna Responses API
  */
-export function buildLunaResponseSchema(teachers: Teacher[] = []) {
-  const teacherIds = teachers.map((teacher) => teacher.id);
-
+export function buildLunaResponseSchema() {
   return {
   type: "json_schema" as const,
   name: "feedback_rewrite_decision",
@@ -29,10 +27,9 @@ export function buildLunaResponseSchema(teachers: Teacher[] = []) {
         type: ["string", "null"],
         description: "The rewritten polite, constructive feedback. Null if decision is 'nothing'.",
       },
-      target_teacher_id: {
+      teacher_name: {
         type: ["string", "null"],
-        enum: [...teacherIds, null],
-        description: "The active teacher ID explicitly identified by the student feedback, or null when no teacher can be identified or the sender is not a student.",
+        description: "The teacher name explicitly identified in the student's original feedback, preserving the [[TARGET_TEACHER]] placeholder when present; null when no teacher can be identified or the sender is not a student.",
       },
       meaning_preserved: {
         type: "boolean",
@@ -43,7 +40,7 @@ export function buildLunaResponseSchema(teachers: Teacher[] = []) {
         description: "Brief internal classification note for audit logs.",
       },
     },
-    required: ["decision", "public_text", "target_teacher_id", "meaning_preserved", "reasoning_notes"],
+    required: ["decision", "public_text", "teacher_name", "meaning_preserved", "reasoning_notes"],
     additionalProperties: false,
   },
   };
@@ -57,7 +54,6 @@ export const lunaResponseSchema = buildLunaResponseSchema();
  */
 export async function callLunaRewrite(
   prompt: string,
-  teachers: Teacher[] = []
 ): Promise<AiRewriteResult> {
   // The local demo can run without a key, but production must never silently
   // publish a simulated AI response.
@@ -77,7 +73,7 @@ export async function callLunaRewrite(
       reasoning: { effort: env.OPENAI_REASONING_EFFORT },
       input: prompt,
       max_output_tokens: env.OPENAI_MAX_OUTPUT_TOKENS,
-      text: { format: buildLunaResponseSchema(teachers) },
+      text: { format: buildLunaResponseSchema() },
       store: env.OPENAI_STORE,
     });
 
@@ -90,7 +86,7 @@ export async function callLunaRewrite(
     return {
       decision: parsed.decision,
       public_text: parsed.public_text,
-      target_teacher_id: parsed.target_teacher_id ?? null,
+      teacher_name: parsed.teacher_name ?? null,
       meaning_preserved: parsed.meaning_preserved ?? true,
       reasoning_notes: parsed.reasoning_notes,
     };
@@ -120,6 +116,7 @@ export function simulateDevelopmentLunaRewrite(prompt: string): AiRewriteResult 
     return {
       decision: "nothing",
       public_text: null,
+      teacher_name: null,
       meaning_preserved: true,
       reasoning_notes: "Classified as off-topic in local simulation.",
     };
@@ -131,7 +128,7 @@ export function simulateDevelopmentLunaRewrite(prompt: string): AiRewriteResult 
   return {
     decision: "publish",
     public_text: `Em cảm thấy bài giảng của ${targetRef} còn hơi nhanh nên mong thầy/cô có thể giải thích chi tiết hơn và cho thêm ví dụ minh họa để chúng em dễ tiếp thu bài học.`,
-    target_teacher_id: null,
+    teacher_name: hasTeacherPlaceholder ? "[[TARGET_TEACHER]]" : null,
     meaning_preserved: true,
     reasoning_notes: "Successfully rewritten with constructive tone.",
   };

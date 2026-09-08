@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { processFeedbackWithLuna } from "@/features/ai";
-import type { CreateSubmissionInput, PostPublic, QuotaStatus, SubmissionPrivate, Teacher } from "@/types";
+import type { CreateSubmissionInput, PostPublic, QuotaStatus, SubmissionPrivate } from "@/types";
 import { STUDENT_TARGET_LABEL } from "@/types";
 import { env } from "$lib/config/env";
 import { mockDatabase } from "$lib/db";
 import { hashClientIp, validateSubmissionText, verifyTurnstileToken } from "$lib/security";
 import { sql } from "$lib/server/db";
-import { deletePostForAuthor, listActiveTeachers } from "$lib/server/repository";
+import { deletePostForAuthor } from "$lib/server/repository";
 
 export const submissionInputSchema = z.object({
   role: z.enum(["student", "teacher", "school"]),
@@ -100,14 +100,6 @@ export async function submitFeedback(
     };
   }
 
-  let teacherCandidates: Teacher[] = [];
-  try {
-    teacherCandidates = await listActiveTeachers();
-  } catch (error) {
-    console.error("Failed to load teacher candidates:", error);
-    return { success: false, reason: "PROCESSING_FAILED", error: "Không thể tải danh sách giáo viên để AI nhận diện." };
-  }
-
   const canonicalTarget = input.role === "student" ? "Giáo viên được AI nhận diện" : STUDENT_TARGET_LABEL;
   const submissionId = env.DEMO_MODE || !env.DATABASE_URL ? `sub-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` : randomUUID();
   const privateRecord: SubmissionPrivate = {
@@ -126,7 +118,7 @@ export async function submitFeedback(
   };
 
   try {
-    const aiResult = await processFeedbackWithLuna({ role: input.role, target: canonicalTarget, teachers: teacherCandidates, text: input.text });
+    const aiResult = await processFeedbackWithLuna({ role: input.role, target: canonicalTarget, text: input.text });
     privateRecord.target = aiResult.displayTarget;
     privateRecord.target_teacher_id = aiResult.targetTeacherId || null;
 
