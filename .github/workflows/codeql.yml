@@ -10,8 +10,6 @@ on:
 jobs:
   analyze:
     name: Analyze
-    # Skip until TypeScript source is added to the scaffold.
-    if: ${{ hashFiles('src/**/*.ts', 'src/**/*.tsx') != '' }}
     runs-on: ubuntu-latest
     permissions:
       security-events: write
