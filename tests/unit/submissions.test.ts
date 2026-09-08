@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { checkUserQuota, submissionInputSchema } from "@/features/submissions";
 import { validateSubmissionText, checkRateLimit } from "@/lib/security";
-import { submissionInputSchema } from "@/features/submissions";
 
 describe("Submissions & Security Validation", () => {
   it("enforces character limit (10 to 1,500 characters)", () => {
@@ -42,5 +42,11 @@ describe("Submissions & Security Validation", () => {
     const third = checkRateLimit(testKey, 2, 60);
     expect(third.allowed).toBe(false);
     expect(third.remaining).toBe(0);
+  });
+
+  it("does not apply the daily submission quota to administrators", async () => {
+    const quota = await checkUserQuota("admin-test-user", true);
+    expect(quota.can_submit).toBe(true);
+    expect(quota.reason).toBeUndefined();
   });
 });

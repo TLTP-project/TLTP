@@ -19,7 +19,14 @@ export const submissionInputSchema = z.object({
 
 const mockPrivateSubmissions: SubmissionPrivate[] = [];
 
-export async function checkUserQuota(userId: string): Promise<QuotaStatus> {
+export async function checkUserQuota(userId: string, isAdmin = false): Promise<QuotaStatus> {
+  // Administrators need to be able to publish repeated moderation/test posts.
+  // Keep validation and Turnstile checks in the submission pipeline; this only
+  // bypasses the daily per-account quota.
+  if (isAdmin) {
+    return { can_submit: true, published_today: 0, attempts_today: 0 };
+  }
+
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   let publishedToday = 0;
   let attemptsToday = 0;
@@ -71,6 +78,7 @@ export async function submitFeedback(
   input: CreateSubmissionInput,
   clientIp?: string,
   clientUserAgent?: string,
+  isAdmin = false,
 ): Promise<SubmissionServiceResult> {
   const validation = submissionInputSchema.safeParse(input);
   if (!validation.success) return { success: false, error: validation.error.issues[0]?.message || "Dữ liệu không hợp lệ" };
@@ -81,7 +89,7 @@ export async function submitFeedback(
   const turnstileCheck = await verifyTurnstileToken(input.turnstile_token, clientIp);
   if (!turnstileCheck.success) return { success: false, reason: "SECURITY_FAILED", error: turnstileCheck.error };
 
-  const quota = await checkUserQuota(userId);
+  const quota = await checkUserQuota(userId, isAdmin);
   if (!quota.can_submit) {
     return {
       success: false,
