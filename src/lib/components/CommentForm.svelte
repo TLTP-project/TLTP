@@ -128,7 +128,7 @@
 <form class="mt-6 space-y-4" onsubmit={(event) => { event.preventDefault(); submitComment(); }}>
   <label class="block text-sm font-bold text-stone-800" for="comment">Bình luận</label>
   <textarea id="comment" bind:value={text} minlength="10" maxlength="1000" rows="4" required class="w-full resize-y rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm leading-7 text-stone-900 shadow-inner placeholder:text-stone-400" placeholder="Chia sẻ suy nghĩ của bạn về bài viết..."></textarea>
-  <div class="flex justify-between text-xs text-stone-400"><span>Tối thiểu 10 ký tự · AI sẽ làm dịu câu chữ</span><span>{text.length}/1000</span></div>
+  <div class="flex justify-between text-xs text-stone-400"><span>Tối thiểu 10 ký tự · AI sẽ làm dịu câu chữ · tối đa 30 bình luận/ngày</span><span>{text.length}/1000</span></div>
   {#if siteKey}<div class="rounded-2xl border border-stone-200 bg-stone-50 p-4"><p class="mb-3 text-xs font-semibold text-stone-500">Xác thực chống bot trước khi bình luận</p><div bind:this={turnstileContainer}></div>{#if turnstileError}<p class="mt-3 text-sm font-semibold text-rose-700">{turnstileError}</p>{/if}</div>{/if}
   {#if error}<p class="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</p>{/if}
   {#if success}<p class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{success}</p>{/if}

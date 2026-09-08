@@ -12,6 +12,7 @@
 
   const dateFormatter = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
   $: isDeleted = post.status === "deleted";
+  $: isAuthorDeleted = post.deletion_source === "author";
 
   async function deletePost() {
     if (!canDelete || isDeleting) return;
@@ -48,9 +49,10 @@
     </div>
     <time datetime={post.created_at}>{dateFormatter.format(new Date(post.created_at))}</time>
   </div>
-  {#if isDeleted}
+  {#if isDeleted && isAuthorDeleted}
     <div class="mt-5 rounded-2xl bg-stone-100 px-4 py-4 text-sm font-semibold text-stone-500">Bài viết đã bị xóa. Nội dung không còn hiển thị.</div>
   {:else}
+    {#if isDeleted}<div class="mt-5 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">Bài viết đã bị quản trị viên gỡ khỏi bảng tin. Nội dung của bạn vẫn được giữ lại ở đây.</div>{/if}
     <p class="mt-5 whitespace-pre-wrap text-[0.98rem] leading-7 text-stone-800">{post.processed_text}</p>
   {/if}
   <div class="mt-5 flex items-center justify-between border-t border-stone-200/80 pt-4">

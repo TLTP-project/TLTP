@@ -26,6 +26,7 @@ function mapPost(row: Record<string, unknown>): PostPublic {
     created_at: new Date(String(row.created_at)).toISOString(),
     updated_at: new Date(String(row.updated_at)).toISOString(),
     deleted_at: row.deleted_at ? new Date(String(row.deleted_at)).toISOString() : null,
+    deletion_source: row.deletion_source === "author" || row.deletion_source === "moderator" ? row.deletion_source : null,
   };
 }
 
@@ -58,7 +59,7 @@ export async function listPublishedPosts(limit = 50): Promise<PostPublic[]> {
   }
   const rows = await sql`
     SELECT id, submission_id, author_id, processed_text, display_sender,
-      display_target, target_teacher_id, status, created_at, updated_at, deleted_at
+      display_target, target_teacher_id, status, created_at, updated_at, deleted_at, deletion_source
     FROM posts_public
     WHERE status = 'published'
     ORDER BY created_at DESC
@@ -73,7 +74,7 @@ export async function getPostById(postId: string): Promise<PostPublic | null> {
   }
   const rows = await sql`
     SELECT id, submission_id, author_id, processed_text, display_sender,
-      display_target, target_teacher_id, status, created_at, updated_at, deleted_at
+      display_target, target_teacher_id, status, created_at, updated_at, deleted_at, deletion_source
     FROM posts_public WHERE id = ${postId} LIMIT 1
   `;
   return rows[0] ? mapPost(rows[0] as Record<string, unknown>) : null;
@@ -81,12 +82,14 @@ export async function getPostById(postId: string): Promise<PostPublic | null> {
 
 export async function listPostsByAuthor(authorId: string): Promise<PostPublic[]> {
   if (env.DEMO_MODE || !env.DATABASE_URL) {
-    return mockDatabase.posts.filter((post) => post.author_id === authorId);
+    return mockDatabase.posts.filter((post) => post.author_id === authorId && (post.status !== "deleted" || post.deletion_source !== "author"));
   }
   const rows = await sql`
     SELECT id, submission_id, author_id, processed_text, display_sender,
-      display_target, target_teacher_id, status, created_at, updated_at, deleted_at
-    FROM posts_public WHERE author_id = ${authorId}
+      display_target, target_teacher_id, status, created_at, updated_at, deleted_at, deletion_source
+    FROM posts_public
+    WHERE author_id = ${authorId}
+      AND (status <> 'deleted' OR deletion_source IS DISTINCT FROM 'author')
     ORDER BY created_at DESC
   `;
   return rows.map((row) => mapPost(row as Record<string, unknown>));
@@ -113,12 +116,13 @@ export async function deletePostForAuthor(authorId: string, postId: string): Pro
     if (!post) return false;
     post.status = "deleted";
     post.deleted_at = new Date().toISOString();
+    post.deletion_source = "author";
     post.updated_at = new Date().toISOString();
     return true;
   }
   const rows = await sql`
     UPDATE posts_public
-    SET status = 'deleted', deleted_at = NOW(), updated_at = NOW()
+    SET status = 'deleted', deleted_at = NOW(), deletion_source = 'author', updated_at = NOW()
     WHERE id = ${postId} AND author_id = ${authorId}
     RETURNING id
   `;

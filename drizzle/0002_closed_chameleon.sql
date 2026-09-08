@@ -1,0 +1,1 @@
+ALTER TABLE "posts_public" ADD COLUMN "deletion_source" text;

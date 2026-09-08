@@ -32,9 +32,10 @@ export async function moderatePost(input: ModerationActionInput): Promise<{ succ
     if (!post) return { success: false, error: "Bài viết không tìm thấy." };
     post.status = newStatus;
     post.deleted_at = deletedAt;
+    post.deletion_source = newStatus === "deleted" ? "moderator" : null;
     post.updated_at = new Date().toISOString();
   } else {
-    await sql`UPDATE posts_public SET status = ${newStatus}, deleted_at = ${deletedAt}, updated_at = NOW() WHERE id = ${input.postId}`;
+    await sql`UPDATE posts_public SET status = ${newStatus}, deleted_at = ${deletedAt}, deletion_source = ${newStatus === "deleted" ? "moderator" : null}, updated_at = NOW() WHERE id = ${input.postId}`;
     await sql`
       INSERT INTO moderation_audit (id, post_id, prompt_version, model, decision, flags, token_usage, created_at)
       VALUES (${randomUUID()}, ${input.postId}, 'moderator', 'human', ${input.action}, ${JSON.stringify(input.note ? { note: input.note } : {})}::jsonb, ${JSON.stringify({})}::jsonb, NOW())

@@ -15,6 +15,13 @@
       "when": 1788846460717,
       "tag": "0001_past_thor_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788849617239,
+      "tag": "0002_closed_chameleon",
+      "breakpoints": true
     }
   ]
 }

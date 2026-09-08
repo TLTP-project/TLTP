@@ -49,6 +49,7 @@ export interface PostPublic {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
+  deletion_source?: "author" | "moderator" | null;
 }
 
 export interface CommentPublic {

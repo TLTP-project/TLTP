@@ -101,6 +101,7 @@ export const postsPublic = pgTable("posts_public", {
   createdAt: createdAt(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  deletionSource: text("deletion_source"),
 });
 
 export const comments = pgTable("comments", {

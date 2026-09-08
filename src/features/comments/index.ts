@@ -8,6 +8,9 @@ import { sql } from "$lib/server/db";
 import { checkPersistentRateLimit, validateSubmissionText, verifyTurnstileToken } from "$lib/security";
 import { getPostById } from "$lib/server/repository";
 
+const COMMENT_RATE_LIMIT = 30;
+const COMMENT_RATE_WINDOW_SECONDS = 24 * 60 * 60;
+
 export const commentInputSchema = z.object({
   text: z.string().min(10, "Bình luận tối thiểu 10 ký tự").max(1000, "Bình luận tối đa 1.000 ký tự"),
   turnstile_token: z.string().optional(),
@@ -46,7 +49,7 @@ export async function createComment(
   if (!turnstileCheck.success) return { success: false, reason: "SECURITY_FAILED", error: turnstileCheck.error };
 
   if (!isAdmin) {
-    const rate = await checkPersistentRateLimit(`comment:user:${userId}`, 20, 60 * 60);
+    const rate = await checkPersistentRateLimit(`comment:user:${userId}`, COMMENT_RATE_LIMIT, COMMENT_RATE_WINDOW_SECONDS);
     if (!rate.allowed) return { success: false, reason: "RATE_LIMITED", error: "Bạn đã bình luận quá nhiều lần. Vui lòng thử lại sau." };
   }
 
