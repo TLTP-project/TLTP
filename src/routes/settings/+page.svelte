@@ -7,6 +7,7 @@
   $: displayName = data.user.name?.trim() || data.user.email?.split("@")[0] || "Tài khoản";
   const roleLabels = { student: "Học sinh", teacher: "Giáo viên", school: "Nhà trường" } as const;
   const verificationLabels = { active: "Đã xác nhận", pending_verification: "Đang chờ xác nhận", rejected: "Cần kiểm tra lại" } as const;
+  $: accountRoleLabel = data.isAdmin ? "Quản trị viên" : roleLabels[data.role];
 </script>
 
 <svelte:head><title>Cài đặt tài khoản · TLTP</title></svelte:head>
@@ -36,7 +37,7 @@
     <div class="mt-5 grid gap-3 sm:grid-cols-2">
       <div class="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
         <p class="text-xs font-bold uppercase tracking-wide text-stone-400">Vai trò tài khoản</p>
-        <p class="mt-1 font-bold text-stone-800">{roleLabels[data.role]}</p>
+        <p class="mt-1 font-bold text-stone-800">{accountRoleLabel}</p>
       </div>
       <div class="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
         <p class="text-xs font-bold uppercase tracking-wide text-stone-400">Trạng thái vai trò</p>

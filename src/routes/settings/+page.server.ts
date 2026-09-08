@@ -14,6 +14,7 @@ export const load: PageServerLoad = async ({ locals }) => {
       image: typeof locals.user.image === "string" ? locals.user.image : null,
     },
     role: currentUser.role,
+    isAdmin: currentUser.isAdmin,
     verificationStatus: currentUser.verificationStatus,
   };
 };
