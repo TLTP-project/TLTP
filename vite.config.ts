@@ -4,6 +4,9 @@ import path from "node:path";
 
 export default defineConfig({
   plugins: [sveltekit()],
+  server: {
+    port: 3000,
+  },
   resolve: {
     alias: {
       "@": path.resolve("./src"),
